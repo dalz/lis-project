@@ -12,6 +12,7 @@ type aexp =
   | Uop of uop * aexp
 
 type bexp =
+  | Bool of bool
   | Cmp of cmpop * aexp * aexp
   | BAnd of bexp * bexp
   | BOr of bexp * bexp
