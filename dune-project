@@ -5,7 +5,7 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github dalz/lis-project))
 
 (authors "Author Name <author@example.com>")
 
@@ -19,7 +19,7 @@
  (name lis-project)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml)
+ (depends ocaml base)
  (tags
   ("add topics" "to describe" your project)))
 

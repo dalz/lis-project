@@ -1,2 +1,3 @@
 (library
- (name lis_project))
+ (name lis_project)
+ (libraries base))
