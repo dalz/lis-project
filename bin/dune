@@ -1,0 +1,4 @@
+(executable
+ (public_name lis-project)
+ (name main)
+ (libraries lis_project))
