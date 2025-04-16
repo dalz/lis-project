@@ -25,13 +25,19 @@ let int_to_subscript n =
   in
   (if n < 0 then "₋" else "") ^ aux n ""
 
-let to_string (s, i) = s ^ int_to_subscript i
-let raw_of_string s = (s, 0)
+let to_string (s, i) = if i = 0 then s else s ^ int_to_subscript i
+
+let raw_of_string s =
+  Hashtbl.update index_table s ~f:(function
+    | None | Some 0 -> 0
+    | _ ->
+        failwith "can't use raw_of_string on an identifier with fresh versions");
+  (s, 0)
 
 let fresh_of_string s =
   ( s,
     Hashtbl.update_and_return index_table s
-      ~f:(Option.value_map ~default:0 ~f:(( + ) 1)) )
+      ~f:(Option.value_map ~default:1 ~f:(( + ) 1)) )
 
 let fresh_of_t (s, _) = fresh_of_string s
 let equal (s, i) (t, j) = String.equal s t && i = j
