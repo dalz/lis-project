@@ -1,13 +1,10 @@
-open! Base
-
-type ide = string [@@deriving show]
 type bop = Sum | Sub | Mul | Div | Mod [@@deriving show]
 type uop = Neg [@@deriving show]
 type cmpop = Le | Lt | Eq [@@deriving show]
 
 type aexp =
   | Num of int
-  | Var of ide
+  | Var of Ide.t
   | Bop of bop * aexp * aexp
   | Uop of uop * aexp
 [@@deriving show]
@@ -24,27 +21,27 @@ type atom =
   | True
   | False
   | Bool of bexp
-  | PointsTo of ide * aexp
+  | PointsTo of Ide.t * aexp
   | Emp
-  | PointsToNothing of ide
+  | PointsToNothing of Ide.t
 [@@deriving show]
 
-type pred =
+type prop =
   | Atom of atom
-  | And of pred * pred
-  | Or of pred * pred
-  | Exists of ide * pred
-  | Sep of pred * pred
+  | And of prop * prop
+  | Or of prop * prop
+  | Exists of Ide.t * prop
+  | Sep of prop * prop
 [@@deriving show]
 
 type cmd =
   | Skip
   | Assert of bexp
-  | Assign of ide * aexp
-  | AssignFromRef of ide * ide
-  | AssignToRef of ide * ide
-  | Alloc of ide
-  | Free of ide
+  | Assign of Ide.t * aexp
+  | AssignFromRef of Ide.t * Ide.t
+  | AssignToRef of Ide.t * Ide.t
+  | Alloc of Ide.t
+  | Free of Ide.t
   | Error
 [@@deriving show]
 

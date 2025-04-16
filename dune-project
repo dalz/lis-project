@@ -19,7 +19,7 @@
  (name lis-project)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml base)
+ (depends ocaml base ppx_deriving)
  (tags
   ("add topics" "to describe" your project)))
 
