@@ -1,2 +1,7 @@
 (test
- (name test_lis_project))
+ (name test_lis_project)
+ (libraries lis_project))
+
+(test
+ (name test_simplify)
+ (libraries lis_project))
