@@ -1,4 +1,5 @@
 (lang dune 3.18)
+(using menhir 3.0)
 
 (name lis-project)
 

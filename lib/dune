@@ -2,3 +2,8 @@
  (name lis_project)
  (libraries base ppx_deriving)
  (preprocess (pps ppx_deriving.show)))
+ 
+(menhir
+ (modules parser))
+
+(ocamllex lexer)
