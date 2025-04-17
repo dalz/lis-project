@@ -10,7 +10,7 @@ type aexp =
 [@@deriving show]
 
 type bexp =
-  | Bool of bool
+  | BConst of bool
   | Cmp of cmpop * aexp * aexp
   | BAnd of bexp * bexp
   | BOr of bexp * bexp
@@ -18,8 +18,6 @@ type bexp =
 [@@deriving show]
 
 type atom =
-  | True
-  | False
   | Bool of bexp
   | PointsTo of Ide.t * aexp
   | Emp

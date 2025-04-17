@@ -17,7 +17,7 @@ let rec subst_aexp (a : aexp) id id1 =
 (* substitutes every instance of identifier id with id1 in b *)
 let rec subst_bexp (b : bexp) id id1 =
   match b with
-  | Bool _ -> b
+  | BConst _ -> b
   | Cmp (op, ae1, ae2) -> Cmp (op, subst_aexp ae1 id id1, subst_aexp ae2 id id1)
   | BAnd (b1, b2) -> BAnd (subst_bexp b1 id id1, subst_bexp b2 id id1)
   | BOr (b1, b2) -> BOr (subst_bexp b1 id id1, subst_bexp b2 id id1)
@@ -26,7 +26,7 @@ let rec subst_bexp (b : bexp) id id1 =
 (* substitutes every instance of identifier id with id1 in p *)
 let rec subst (p : prop) id id1 =
   match p with
-  | Atom True | Atom False | Atom Emp -> p
+  | Atom (Bool (BConst true)) | Atom (Bool (BConst false)) | Atom Emp -> p
   | And (p1, p2) -> And (subst p1 id id1, subst p2 id id1)
   | Or (p1, p2) -> Or (subst p1 id id1, subst p2 id id1)
   (* exists: substitute only if id is not shadowed by iden *)
@@ -62,13 +62,13 @@ let rec extract_exists (exs : Ide.t list) (uxs : Ide.t list) (p : prop) =
     | Cmp (_, e1, e2) -> aexp_fv e1 xs |> aexp_fv e2
     | BAnd (e1, e2) | BOr (e1, e2) -> bexp_fv e1 xs |> bexp_fv e2
     | Not e -> bexp_fv e xs
-    | Bool _ -> xs
+    | BConst _ -> xs
   in
   let atom_fv = function
     | PointsTo (x, e) -> x :: aexp_fv e []
     | PointsToNothing x -> [ x ]
     | Bool e -> bexp_fv e []
-    | True | False | Emp -> []
+    | Emp -> []
   in
 
   let aux p q op =

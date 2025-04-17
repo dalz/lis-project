@@ -23,7 +23,7 @@ rule read =
     | num { INT (int_of_string (Lexing.lexeme lexbuf)) }
     | "+" { PLUS }
     | "-" { MINUS }
-    | "*" { MULT }
+    | "*" { STAR }
     | "/" { DIV }
     | "%" { MOD }
     | "-" { MINUS }
@@ -36,5 +36,16 @@ rule read =
     | "<" { LT }
     | "<=" { LE }
     | "=" { EQ }
+    (** Atom tokens *)
+    | "emp" {EMP}
+    | "->" {REF}
+    | "!->" {NREF}
+    (** Proposition tokens*)
+    | "exist" | "∃" {EXIST}
+    | "." {DOT}
+    (** string token *)
+    | ide { ID (Lexing.lexeme lexbuf) }
     | eof {EOF}
+
+
 
