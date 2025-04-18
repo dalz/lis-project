@@ -43,6 +43,17 @@ rule read =
     (** Proposition tokens*)
     | "exist" | "∃" {EXIST}
     | "." {DOT}
+    (** Program tokens *)
+    | ";" { SEMICOLON }
+    (** Command tokens *)
+    | "skip" { SKIP }
+    | "?" { QUESTION }
+    | "[" { LBRACK }
+    | "]" { RBRACK }
+    | ":=" { ASSIGN }
+    | "alloc" { ALLOC }
+    | "free" { FREE }
+    | "error" { ERROR }
     (** string token *)
     | ide { ID (Lexing.lexeme lexbuf) }
     | eof {EOF}

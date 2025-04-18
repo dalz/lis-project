@@ -49,3 +49,5 @@ type prog =
   | Choice of prog * prog
   | Star of prog
 [@@deriving show]
+
+type triple = prop * prog * prop
