@@ -1,6 +1,10 @@
 open Ast
 open Norm_prop
+()
 
+
+(*Check z3 arithmetic rules for deeper simplification which is already implementation*)
+(*Evaluate if its better to use  Z3 or reeimplement it *)
 let rec simplify_a (a : aexp) : aexp =
   match a with
   | Num n -> Num n
@@ -26,14 +30,14 @@ let rec simplify_a (a : aexp) : aexp =
       | Uop (Neg, a1) -> simplify_a a1
       | _ -> Uop (Neg, simplify_a n))
 
-let rec simplify_b (b : bexp) : bexp =
+let rec simplify_b (b : bexp) : bexp = (*check for demorgan rules*)
   match b with
   | BConst b1 -> BConst b1
   | Not b1 -> (
       match b1 with
       | BConst true -> BConst false
       | BConst false -> BConst true
-      | _ -> Not (simplify_b b1))
+      | _ -> Not (simplify_b b1)) (*implement extra not not simp*)
   | BAnd (bexp1, bexp2) -> (
       let eval1 = simplify_b bexp1 in
       let eval2 = simplify_b bexp2 in
@@ -97,7 +101,7 @@ let rec remove_from_the_right l =
   | [] -> []
   | h :: t -> h :: remove_from_the_right (List.filter (fun x -> x <> h) t)
 
-let rec simplify_conj (atoms : conj) : conj =
+let rec simplify_conj (atoms : conj) : conj = (*discuss parametric impl*)
   (* Extract atoms list from conj *)
   let atoms_list = match atoms with Conj a -> a in
   (* Simplify atoms *)
@@ -107,13 +111,14 @@ let rec simplify_conj (atoms : conj) : conj =
     (* TODO check if this filter works as expected *)
     List.filter (function at -> at != Bool (BConst true)) simpl_list
   in
-  (* Remove duplicates *)
+  (* Remove duplicates // this is false*) 
   let unique_list = remove_from_the_right filt_list in
   (* Checks if there is False *)
   if List.exists (function at -> at == Bool (BConst false)) unique_list then
     Conj [ Bool (BConst false) ]
   else Conj unique_list
 (* TODO check if x -> v and x -> w / v!=w *)
+(* Acumulate via qualitative constraint, and evaluate later in the program the results*)
 
 let rec simplify_sepj (conjs : sepj) : sepj =
   (* Extract conjs from sepj *)
@@ -130,7 +135,8 @@ let rec simplify_sepj (conjs : sepj) : sepj =
   (* Remove duplicates *)
   let unique_list = remove_from_the_right filter_list in
   Sepj unique_list
-(* TODO, for each varaible check x -> v * x -> w = false *)
+(* TODO, for each varaible check x -> v * x -> w = false ;; our ideia were right*)
+
 
 let rec simply_dsj (sepjs : disj) : disj =
   (* Extract the list of sepjs from disj *)
