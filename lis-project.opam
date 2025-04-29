@@ -13,8 +13,10 @@ depends: [
   "dune" {>= "3.18"}
   "ocaml"
   "base"
+  "stdio"
   "ppx_deriving"
   "menhir"
+  "pprint"
   "odoc" {with-doc}
 ]
 build: [

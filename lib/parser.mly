@@ -56,9 +56,9 @@ This file defines the common parser for SL+ and ISL+.
 %nonassoc LPAREN RPAREN LBRACK RBRACK
 
 (** Declaring types *)
-%type <Ast.aexp> aexp
-%type <Ast.bexp> bexp
-%type <Ast.atom> atom
+%type <Aexp.t>   aexp
+%type <Bexp.t>   bexp
+%type <Atom.t>   atom
 %type <Ast.prop> prop
 %type <Ast.prog> prog 
 %type <Ast.prop> eprop
@@ -166,12 +166,12 @@ aexp :
 (* Boolean Rule *)
 bexp :
     | LPAREN; b=bexp; RPAREN {b}
-    | b = BOOL { BConst b }
+    | b = BOOL { Const b }
     | a1 = aexp LT a2 = aexp { Cmp(Lt, a1, a2) }
     | a1 = aexp LE a2 = aexp { Cmp(Le, a1, a2) }
     | a1 = aexp EQ a2 = aexp { Cmp(Eq, a1, a2) }
-    | b1 = bexp AND b2 = bexp { BAnd(b1, b2) }
-    | b1 = bexp OR b2 = bexp { BOr(b1, b2) }
+    | b1 = bexp AND b2 = bexp { Bop(And, b1, b2) }
+    | b1 = bexp OR b2 = bexp { Bop(Or, b1, b2) }
     | NOT b = bexp { Not b }
     ;
 

@@ -1,41 +1,25 @@
 open Base
 open Ast
+open Bexp
 
-type conj = Conj of atom list [@@deriving show]
-type sepj = Sepj of conj list [@@deriving show]
-type disj = Disj of sepj list [@@deriving show]
-type t = Ide.t list * disj [@@deriving show]
-
-(* substitutes every instance of identifier id with id1 in a *)
-let rec subst_aexp (a : aexp) id id1 =
-  match a with
-  | Num _ -> a
-  | Var iden -> Var (if Ide.(iden = id) then id1 else iden)
-  | Bop (op, ae1, ae2) -> Bop (op, subst_aexp ae1 id id1, subst_aexp ae2 id id1)
-  | Uop (op, ae1) -> Uop (op, subst_aexp ae1 id id1)
-
-(* substitutes every instance of identifier id with id1 in b *)
-let rec subst_bexp (b : bexp) id id1 =
-  match b with
-  | BConst _ -> b
-  | Cmp (op, ae1, ae2) -> Cmp (op, subst_aexp ae1 id id1, subst_aexp ae2 id id1)
-  | BAnd (b1, b2) -> BAnd (subst_bexp b1 id id1, subst_bexp b2 id id1)
-  | BOr (b1, b2) -> BOr (subst_bexp b1 id id1, subst_bexp b2 id id1)
-  | Not b1 -> Not (subst_bexp b1 id id1)
+type conj = Conj of Atom.t list
+type sepj = Sepj of conj list
+type disj = Disj of sepj list
+type t = Ide.t list * disj
 
 (* substitutes every instance of identifier id with id1 in p *)
 let rec subst (p : prop) id id1 =
   match p with
-  | Atom (Bool (BConst true)) | Atom (Bool (BConst false)) | Atom Emp -> p
+  | Atom (Bool (Const true)) | Atom (Bool (Const false)) | Atom Emp -> p
   | And (p1, p2) -> And (subst p1 id id1, subst p2 id id1)
   | Or (p1, p2) -> Or (subst p1 id id1, subst p2 id id1)
   (* exists: substitute only if id is not shadowed by iden *)
   | Exists (iden, p1) ->
       Exists (iden, if Ide.(iden = id) then p1 else subst p1 id id1)
-  | Atom (Bool b1) -> Atom (Bool (subst_bexp b1 id id1))
+  | Atom (Bool b1) -> Atom (Bool (Bexp.subst b1 id id1))
   | Atom (PointsTo (iden, a)) ->
       Atom
-        (PointsTo ((if Ide.(iden = id) then id1 else iden), subst_aexp a id id1))
+        (PointsTo ((if Ide.(iden = id) then id1 else iden), Aexp.subst a id id1))
   | Atom (PointsToNothing iden) ->
       Atom (PointsToNothing (if Ide.(iden = id) then id1 else iden))
   | Sep (p1, p2) -> Sep (subst p1 id id1, subst p2 id id1)
@@ -44,33 +28,12 @@ let rec subst (p : prop) id id1 =
  * ∃ (x_1 ... x_n) . (⋁_i q_i)
  * with q_i composed of ∧ and * only *)
 
-let or_ p q = Or (p, q)
-let and_ p q = And (p, q)
+let or_ p q : prop = Or (p, q)
+let and_ p q : prop = And (p, q)
 let sep p q = Sep (p, q)
 
 (* returns existential variables, used variables, prop without exists *)
 let rec extract_exists (exs : Ide.t list) (uxs : Ide.t list) (p : prop) =
-  let rec aexp_fv e xs =
-    match e with
-    | Var x -> x :: xs
-    | Bop (_, e1, e2) -> aexp_fv e1 xs |> aexp_fv e2
-    | Uop (_, e) -> aexp_fv e xs
-    | Num _ -> xs
-  in
-  let rec bexp_fv e xs =
-    match e with
-    | Cmp (_, e1, e2) -> aexp_fv e1 xs |> aexp_fv e2
-    | BAnd (e1, e2) | BOr (e1, e2) -> bexp_fv e1 xs |> bexp_fv e2
-    | Not e -> bexp_fv e xs
-    | BConst _ -> xs
-  in
-  let atom_fv = function
-    | PointsTo (x, e) -> x :: aexp_fv e []
-    | PointsToNothing x -> [ x ]
-    | Bool e -> bexp_fv e []
-    | Emp -> []
-  in
-
   let aux p q op =
     let exs, uxs, p = extract_exists exs uxs p in
     let exs, uxs, q = extract_exists exs uxs q in
@@ -85,7 +48,7 @@ let rec extract_exists (exs : Ide.t list) (uxs : Ide.t list) (p : prop) =
         else (x, p)
       in
       extract_exists (x :: exs) (x :: uxs) p
-  | Atom a -> (exs, uxs @ atom_fv a, p)
+  | Atom a -> (exs, uxs @ Atom.fv a, p)
   | And (p, q) -> aux p q and_
   | Or (p, q) -> aux p q or_
   | Sep (p, q) -> aux p q sep

@@ -23,7 +23,7 @@ rule read =
     | num { INT (int_of_string (Lexing.lexeme lexbuf)) }
     | "+" { PLUS }
     | "-" { MINUS }
-    | "*" { STAR }
+    | "*" | "∗" { STAR }
     | "/" { DIV }
     | "%" { MOD }
     | "-" { MINUS }
