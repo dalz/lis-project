@@ -12,7 +12,7 @@ let rec simplify_a (a : aexp) : aexp =
   | Bop (a_op, a1, a2) -> (
       let s_a1 = simplify_a a1 in
       let s_a2 = simplify_a a2 in
-      match (s_a1, s_a1) with
+      match (s_a1, s_a2) with
       | Num n1, Num n2 -> (
           match a_op with
           | Sum -> Num (n1 + n2)
@@ -30,11 +30,15 @@ let rec simplify_a (a : aexp) : aexp =
       | Uop (Neg, a1) -> simplify_a a1
       | _ -> Uop (Neg, simplify_a n))
 
-let rec simplify_b (b : bexp) : bexp = (*check for demorgan rules*)
+let rec simplify_b (b : bexp) : bexp =
   match b with
   | BConst b1 -> BConst b1
   | Not b1 -> (
       match b1 with
+      | BAnd (bexp1, bexp2) -> BOr (simplify_b (Not bexp1), simplify_b (Not bexp2))
+      | BOr (bexp1, bexp2) -> BAnd (simplify_b (Not bexp1), simplify_b (Not bexp2))
+      | BAnd (Not bexp1, Not bexp2) -> BOr (simplify_b bexp1, simplify_b bexp2)
+      | BOr (Not bexp1, Not bexp2) -> BAnd (simplify_b bexp1, simplify_b bexp2)
       | BConst true -> BConst false
       | BConst false -> BConst true
       | _ -> Not (simplify_b b1)) (*implement extra not not simp*)
