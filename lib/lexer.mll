@@ -28,20 +28,20 @@ rule read =
     | "%" { MOD }
     | "-" { MINUS }
     (** Boolean tokens *)
-    | "true" { BOOL (true) }
-    | "false" { BOOL (false) }
-    | "||" { OR }
-    | "&&" { AND }
-    | "!" { NOT }
+    | "true" | "⊤" { BOOL (true) }
+    | "false" | "⊥" { BOOL (false) }
+    | "||" | "∨" { OR }
+    | "&&" | "∧" { AND }
+    | "!" | "¬" { NOT }
     | "<" { LT }
-    | "<=" { LE }
+    | "<=" | "≤" { LE }
     | "=" { EQ }
     (** Atom tokens *)
     | "emp" {EMP}
-    | "->" {REF}
-    | "!->" {NREF}
+    | "->" | "↦" {REF}
+    | "!->" | "!↦" | "↦̸" {NREF}
     (** Proposition tokens*)
-    | "exist" | "∃" {EXIST}
+    | "exists" | "∃" {EXIST}
     | "." {DOT}
     (** Program tokens *)
     | ";" { SEMICOLON }
