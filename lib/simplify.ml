@@ -1,6 +1,6 @@
 open Ast
 open Norm_prop
-()
+
 
 
 (*Check z3 arithmetic rules for deeper simplification which is already implementation*)
@@ -124,6 +124,32 @@ let rec simplify_conj (atoms : conj) : conj = (*discuss parametric impl*)
 (* TODO check if x -> v and x -> w / v!=w *)
 (* Acumulate via qualitative constraint, and evaluate later in the program the results*)
 
+(* Returns true iff the given sepj has at least two PointsTo containing the same variable.
+  This function helps to implement this simplification rule: x -> v * x -> w = false *)
+let sepj_has_conflict (Sepj conj_list) : bool =
+  let seen_vars = Hashtbl.create 16 in
+
+  (* Checks if any PointsTo in a conj references a variable already seen. *)
+  let rec check_atoms = function
+    | [] -> false
+    | PointsTo (var_name, _) :: tail ->
+        if Hashtbl.mem seen_vars var_name then true
+        else (
+          Hashtbl.add seen_vars var_name true;
+          check_atoms tail
+        )
+    | _ :: tail -> check_atoms tail
+  in
+
+  (* Iterates through each conj until a conflict is found. *)
+  let rec check_conflicts = function
+    | [] -> false
+    | Conj atoms :: rest ->
+        if check_atoms atoms then true else check_conflicts rest
+  in
+
+  check_conflicts conj_list
+
 let rec simplify_sepj (conjs : sepj) : sepj =
   (* Extract conjs from sepj *)
   let conjs_list = match conjs with Sepj s -> s in
@@ -136,11 +162,14 @@ let rec simplify_sepj (conjs : sepj) : sepj =
   let filter_list =
     List.filter (function conj_exp -> conj_exp != Conj [ Emp ]) simpl_list
   in
-  (* Remove duplicates *)
+  (* Remove duplicates *) (* TODO: should we remove duplicates before or after checking if there's a conflict? *)
   let unique_list = remove_from_the_right filter_list in
-  Sepj unique_list
-(* TODO, for each varaible check x -> v * x -> w = false ;; our ideia were right*)
 
+  (* If there's a conflict (x->v * x->w), the whole sepj becomes false *)
+  (* TODO: check this IF ELSE and the "sepj_has_conflict" function: I'm not sure if they are correct. The objective was to implement this simplification rule: x -> v * x -> w = false  *)
+  if sepj_has_conflict (Sepj unique_list) then
+    Sepj [ Conj [ Bool (BConst false) ] ]
+  else Sepj unique_list
 
 let rec simply_dsj (sepjs : disj) : disj =
   (* Extract the list of sepjs from disj *)
