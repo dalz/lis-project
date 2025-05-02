@@ -1,8 +1,8 @@
 (library
  (name lis_project)
- (libraries base ppx_deriving)
+ (libraries base ppx_deriving pprint)
  (preprocess (pps ppx_deriving.show)))
- 
+
 (menhir
  (modules parser))
 

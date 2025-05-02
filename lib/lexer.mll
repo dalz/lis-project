@@ -23,26 +23,37 @@ rule read =
     | num { INT (int_of_string (Lexing.lexeme lexbuf)) }
     | "+" { PLUS }
     | "-" { MINUS }
-    | "*" { STAR }
+    | "*" | "∗" { STAR }
     | "/" { DIV }
     | "%" { MOD }
     | "-" { MINUS }
     (** Boolean tokens *)
-    | "true" { BOOL (true) }
-    | "false" { BOOL (false) }
-    | "||" { OR }
-    | "&&" { AND }
-    | "!" { NOT }
+    | "true" | "⊤" { BOOL (true) }
+    | "false" | "⊥" { BOOL (false) }
+    | "||" | "∨" { OR }
+    | "&&" | "∧" { AND }
+    | "!" | "¬" { NOT }
     | "<" { LT }
-    | "<=" { LE }
+    | "<=" | "≤" { LE }
     | "=" { EQ }
     (** Atom tokens *)
     | "emp" {EMP}
-    | "->" {REF}
-    | "!->" {NREF}
+    | "->" | "↦" {REF}
+    | "!->" | "!↦" | "↦̸" {NREF}
     (** Proposition tokens*)
-    | "exist" | "∃" {EXIST}
+    | "exists" | "∃" {EXIST}
     | "." {DOT}
+    (** Program tokens *)
+    | ";" { SEMICOLON }
+    (** Command tokens *)
+    | "skip" { SKIP }
+    | "?" { QUESTION }
+    | "[" { LBRACK }
+    | "]" { RBRACK }
+    | ":=" { ASSIGN }
+    | "alloc" { ALLOC }
+    | "free" { FREE }
+    | "error" { ERROR }
     (** string token *)
     | ide { ID (Lexing.lexeme lexbuf) }
     | eof {EOF}
