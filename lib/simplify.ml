@@ -1,11 +1,9 @@
 open Ast
 open Norm_prop
 
-
-
 (*Check z3 arithmetic rules for deeper simplification which is already implementation*)
 (*Evaluate if its better to use  Z3 or reeimplement it *)
-let rec simplify_a (a : aexp) : aexp =
+let rec simplify_a (a : Aexp.t) : Aexp.t =
   match a with
   | Num n -> Num n
   | Var t -> Var t
@@ -30,40 +28,43 @@ let rec simplify_a (a : aexp) : aexp =
       | Uop (Neg, a1) -> simplify_a a1
       | _ -> Uop (Neg, simplify_a n))
 
-let rec simplify_b (b : bexp) : bexp =
+let rec simplify_b (b : Bexp.t) : Bexp.t =
   match b with
-  | BConst b1 -> BConst b1
+  | Const b1 -> Const b1
   | Not b1 -> (
       match b1 with
-      | BAnd (bexp1, bexp2) -> BOr (simplify_b (Not bexp1), simplify_b (Not bexp2))
-      | BOr (bexp1, bexp2) -> BAnd (simplify_b (Not bexp1), simplify_b (Not bexp2))
-      | BAnd (Not bexp1, Not bexp2) -> BOr (simplify_b bexp1, simplify_b bexp2)
-      | BOr (Not bexp1, Not bexp2) -> BAnd (simplify_b bexp1, simplify_b bexp2)
-      | BConst true -> BConst false
-      | BConst false -> BConst true
-      | _ -> Not (simplify_b b1)) (*implement extra not not simp*)
-  | BAnd (bexp1, bexp2) -> (
+      | Bop (op, Not bexp1, Not bexp2) -> (
+          match op with
+          | And -> Bop (Or, simplify_b bexp1, simplify_b bexp2)
+          | Or -> Bop (And, simplify_b bexp1, simplify_b bexp2))
+      | Bop (op, bexp1, bexp2) -> (
+          match op with
+          | And -> Bop (Or, simplify_b (Not bexp1), simplify_b (Not bexp2))
+          | Or -> Bop (And, simplify_b (Not bexp1), simplify_b (Not bexp2)))
+      | Const b -> ( match b with true -> Const false | false -> Const true)
+      | _ -> Not (simplify_b b1))
+  | Bop (op, bexp1, bexp2) -> (
       let eval1 = simplify_b bexp1 in
       let eval2 = simplify_b bexp2 in
-      match eval1 with
-      | BConst false -> BConst false
-      | BConst true -> eval2
-      | _ -> (
-          match eval2 with
-          | BConst false -> BConst false
-          | BConst true -> eval1
-          | _ -> BAnd (eval1, eval2)))
-  | BOr (bexp1, bexp2) -> (
-      let eval1 = simplify_b bexp1 in
-      let eval2 = simplify_b bexp2 in
-      match eval1 with
-      | BConst true -> BConst true
-      | BConst false -> eval2
-      | _ -> (
-          match eval2 with
-          | BConst true -> BConst true
-          | BConst false -> eval1
-          | _ -> BOr (eval1, eval2)))
+      match op with
+      | And -> (
+          match eval1 with
+          | Const false -> Const false
+          | Const true -> eval2
+          | _ -> (
+              match eval2 with
+              | Const false -> Const false
+              | Const true -> eval1
+              | _ -> Bop (And, eval1, eval2)))
+      | Or -> (
+          match eval1 with
+          | Const true -> Const true
+          | Const false -> eval2
+          | _ -> (
+              match eval2 with
+              | Const true -> Const true
+              | Const false -> eval1
+              | _ -> Bop (Or, eval1, eval2))))
   | Cmp (op, aexp1, aexp2) -> (
       let eval1 = simplify_a aexp1 in
       let eval2 = simplify_a aexp2 in
@@ -72,25 +73,26 @@ let rec simplify_b (b : bexp) : bexp =
           match eval1 with
           | Num n1 -> (
               match eval2 with
-              | Num n2 -> BConst (n1 <= n2)
+              | Num n2 -> Const (n1 <= n2)
               | _ -> Cmp (Le, eval1, eval2))
           | _ -> Cmp (Le, eval1, eval2))
       | Lt -> (
           match eval1 with
           | Num n1 -> (
               match eval2 with
-              | Num n2 -> BConst (n1 < n2)
+              | Num n2 -> Const (n1 < n2)
               | _ -> Cmp (Lt, eval1, eval2))
           | _ -> Cmp (Lt, eval1, eval2))
       | Eq -> (
           match eval1 with
           | Num n1 -> (
               match eval2 with
-              | Num n2 -> BConst (n1 == n2)
+              | Num n2 ->
+                  Const (n1 = n2) (* Use single '=' for structural equality *)
               | _ -> Cmp (Eq, eval1, eval2))
           | _ -> Cmp (Eq, eval1, eval2)))
 
-let rec simplify_atom (at : atom) : atom =
+let simplify_atom (at : Atom.t) : Atom.t =
   match at with
   | Bool b -> Bool (simplify_b b)
   | Emp -> Emp
@@ -105,22 +107,38 @@ let rec remove_from_the_right l =
   | [] -> []
   | h :: t -> h :: remove_from_the_right (List.filter (fun x -> x <> h) t)
 
-let rec simplify_conj (atoms : conj) : conj = (*discuss parametric impl*)
+(* Function that returns false if x -> w * x -> v, by scanning through all the atoms *)
+(* TODO use a set instead of list, this is highly inefficient with lists, how should we handle this?*)
+let has_no_duplicates lst =
+  let rec aux seen = function
+    | [] -> true
+    | x :: xs ->
+        if List.exists (fun y -> y = x) seen then false else aux (x :: seen) xs
+  in
+  aux [] lst
+
+let simplify_conj (atoms : conj) : conj =
+  (*discuss parametric impl*)
   (* Extract atoms list from conj *)
   let atoms_list = match atoms with Conj a -> a in
   (* Simplify atoms *)
   let simpl_list = List.map (function at -> simplify_atom at) atoms_list in
   (* Remove AND true *)
   let filt_list =
-    (* TODO check if this filter works as expected *)
-    List.filter (function at -> at != Bool (BConst true)) simpl_list
+    List.filter (function at -> at != Atom.Bool (Bexp.Const true)) simpl_list
   in
-  (* Remove duplicates // this is false*) 
+  (* Remove duplicates // this is false*)
   let unique_list = remove_from_the_right filt_list in
   (* Checks if there is False *)
-  if List.exists (function at -> at == Bool (BConst false)) unique_list then
-    Conj [ Bool (BConst false) ]
-  else Conj unique_list
+  if
+    List.exists
+      (function at -> at == Atom.Bool (Bexp.Const false))
+      unique_list
+  then Conj [ Bool (Bexp.Const false) ]
+    (* TODO check that his makes sense, if there are any duplicates pointers -> return false*)
+  else if has_no_duplicates atoms_list then Conj unique_list
+  else Conj [ Bool (Bexp.Const false) ]
+
 (* TODO check if x -> v and x -> w / v!=w *)
 (* Acumulate via qualitative constraint, and evaluate later in the program the results*)
 
@@ -132,12 +150,11 @@ let sepj_has_conflict (Sepj conj_list) : bool =
   (* Checks if any PointsTo in a conj references a variable already seen. *)
   let rec check_atoms = function
     | [] -> false
-    | PointsTo (var_name, _) :: tail ->
+    | Atom.PointsTo (var_name, _) :: tail ->
         if Hashtbl.mem seen_vars var_name then true
         else (
           Hashtbl.add seen_vars var_name true;
-          check_atoms tail
-        )
+          check_atoms tail)
     | _ :: tail -> check_atoms tail
   in
 
@@ -150,7 +167,7 @@ let sepj_has_conflict (Sepj conj_list) : bool =
 
   check_conflicts conj_list
 
-let rec simplify_sepj (conjs : sepj) : sepj =
+let simplify_sepj (conjs : sepj) : sepj =
   (* Extract conjs from sepj *)
   let conjs_list = match conjs with Sepj s -> s in
 
@@ -162,16 +179,17 @@ let rec simplify_sepj (conjs : sepj) : sepj =
   let filter_list =
     List.filter (function conj_exp -> conj_exp != Conj [ Emp ]) simpl_list
   in
-  (* Remove duplicates *) (* TODO: should we remove duplicates before or after checking if there's a conflict? *)
+  (* Remove duplicates *)
+  (* TODO: should we remove duplicates before or after checking if there's a conflict? *)
   let unique_list = remove_from_the_right filter_list in
 
   (* If there's a conflict (x->v * x->w), the whole sepj becomes false *)
   (* TODO: check this IF ELSE and the "sepj_has_conflict" function: I'm not sure if they are correct. The objective was to implement this simplification rule: x -> v * x -> w = false  *)
   if sepj_has_conflict (Sepj unique_list) then
-    Sepj [ Conj [ Bool (BConst false) ] ]
+    Sepj [ Conj [ Bool (Bexp.Const false) ] ]
   else Sepj unique_list
 
-let rec simply_dsj (sepjs : disj) : disj =
+let simply_dsj (sepjs : disj) : disj =
   (* Extract the list of sepjs from disj *)
   let sep_list = match sepjs with Disj d -> d in
   (* Simplify each sepj inside the list *)
@@ -179,7 +197,7 @@ let rec simply_dsj (sepjs : disj) : disj =
   (* Removign OR false *)
   let filt_list =
     List.filter
-      (function at -> at != Sepj [ Conj [ Bool (BConst false) ] ])
+      (function at -> at != Sepj [ Conj [ Bool (Bexp.Const false) ] ])
       simpl_list
   in
   (* Removing duplicates *)
@@ -187,9 +205,9 @@ let rec simply_dsj (sepjs : disj) : disj =
   if
     (* Check if there is OR true *)
     List.exists
-      (function at -> at == Sepj [ Conj [ Bool (BConst true) ] ])
+      (function at -> at == Sepj [ Conj [ Bool (Bexp.Const true) ] ])
       unique_list
-  then Disj [ Sepj [ Conj [ Bool (BConst true) ] ] ]
+  then Disj [ Sepj [ Conj [ Bool (Bexp.Const true) ] ] ]
   else Disj unique_list
 
 let simplify_t (proposition : t) : t =
@@ -203,28 +221,28 @@ let rec simplify_prop expr =
       let eval1 = simplify_prop prop1 in
       let eval2 = simplify_prop prop2 in
       match eval1 with
-      | Atom (Bool (BConst true)) -> Atom (Bool (BConst true))
-      | Atom (Bool (BConst false)) -> eval2
+      | Atom (Bool (Bexp.Const true)) -> Atom (Bool (Bexp.Const true))
+      | Atom (Bool (Bexp.Const false)) -> eval2
       | _ -> (
           match eval2 with
-          | Atom (Bool (BConst true)) -> Atom (Bool (BConst true))
-          | Atom (Bool (BConst false)) -> eval1
+          | Atom (Bool (Bexp.Const true)) -> Atom (Bool (Bexp.Const true))
+          | Atom (Bool (Bexp.Const false)) -> eval1
           | _ -> Or (eval1, eval2)))
   | And (prop1, prop2) -> (
       let eval1 = simplify_prop prop1 in
       let eval2 = simplify_prop prop2 in
       match eval1 with
-      | Atom (Bool (BConst false)) -> Atom (Bool (BConst false))
-      | Atom (Bool (BConst true)) -> eval2
+      | Atom (Bool (Bexp.Const false)) -> Atom (Bool (Bexp.Const false))
+      | Atom (Bool (Bexp.Const true)) -> eval2
       | _ -> (
           match eval2 with
-          | Atom (Bool (BConst false)) -> Atom (Bool (BConst false))
-          | Atom (Bool (BConst true)) -> eval1
+          | Atom (Bool (Bexp.Const false)) -> Atom (Bool (Bexp.Const false))
+          | Atom (Bool (Bexp.Const true)) -> eval1
           | _ -> And (eval1, eval2)))
   | Exists (iden, p) -> (
       match simplify_prop p with
-      | Atom (Bool (BConst true)) -> Atom (Bool (BConst true))
-      | Atom (Bool (BConst false)) -> Atom (Bool (BConst false))
+      | Atom (Bool (Bexp.Const true)) -> Atom (Bool (Bexp.Const true))
+      | Atom (Bool (Bexp.Const false)) -> Atom (Bool (Bexp.Const false))
       | _ -> Exists (iden, simplify_prop p))
   | Sep (p1, p2) -> (
       let eval1 = simplify_prop p1 in
