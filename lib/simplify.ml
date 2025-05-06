@@ -281,7 +281,7 @@ let simplify_t (proposition : t) : t =
   match proposition with
   | id_list, disjunction -> (id_list, simply_dsj disjunction)
 
-(* TODO eventually remove simplify prop *)
+(* TODO eventually add exist simplification for dummy variables *)
 let rec simplify_prop expr =
   match expr with
   | Or (prop1, prop2) -> (
@@ -322,4 +322,4 @@ let rec simplify_prop expr =
       (* TODO add simplification for x -> 5 * x -> 7 this should be simplified to false *)
       )
   | Atom (Bool b) -> Atom (Bool (simplify_b b))
-  | _ -> failwith ""
+  | Atom a -> Atom (simplify_atom a)

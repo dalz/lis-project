@@ -31,7 +31,9 @@ let () =
   in
   List.iter
     (fun x ->
-      let parsed_string = parse_proposition x in
+      let parsed_string =
+        parse_proposition x |> Lis_project.Simplify.simplify_prop
+      in
       let normalized_ast =
         Lis_project.Norm_prop.normalize_iter parsed_string
         |> Lis_project.Norm_prop.of_prop
