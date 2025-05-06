@@ -91,10 +91,10 @@ let rec simplify_b (b : Bexp.t) : Bexp.t =
                   Const (n1 = n2) (* Use single '=' for structural equality *)
               | _ -> Cmp (Eq, eval1, eval2))
           | Var v1 -> (
-            match eval2 with
-            | Var v2 ->
-                Const (v1 = v2) (* Use single '=' for structural equality *)
-            | _ -> Cmp (Eq, eval1, eval2))
+              match eval2 with
+              | Var v2 ->
+                  Const (v1 = v2) (* Use single '=' for structural equality *)
+              | _ -> Cmp (Eq, eval1, eval2))
           | _ -> Cmp (Eq, eval1, eval2)))
 
 let simplify_atom (at : Atom.t) : Atom.t =
@@ -122,36 +122,47 @@ let has_no_duplicates lst =
   in
   aux [] lst
 
-  let rec move_points_num_first (atoms_list: Atom.t list): Atom.t list = match atoms_list with
-  | Atom.PointsTo(x, Num n) :: rest -> Atom.PointsTo(x, Num n) :: move_points_num_first(rest)
-  | a :: Atom.PointsTo(x, Num n) :: rest -> Atom.PointsTo(x, Num n) :: a :: move_points_num_first(rest)
-  | a :: b :: rest -> move_points_num_first(rest) @ [a; b]
+let rec move_points_num_first (atoms_list : Atom.t list) : Atom.t list =
+  match atoms_list with
+  | Atom.PointsTo (x, Num n) :: rest ->
+      Atom.PointsTo (x, Num n) :: move_points_num_first rest
+  | a :: Atom.PointsTo (x, Num n) :: rest ->
+      Atom.PointsTo (x, Num n) :: a :: move_points_num_first rest
+  | a :: b :: rest -> move_points_num_first rest @ [ a; b ]
   | _ -> atoms_list
 
+let populate_hash (hash : (Ide.t, Aexp.t list) Hashtbl.t) (atoms : Atom.t list)
+    : Atom.t list =
+  List.filter
+    (fun atom ->
+      match atom with
+      | Atom.PointsTo (x, a) ->
+          if Hashtbl.mem hash x then (
+            Hashtbl.replace hash x (a :: Hashtbl.find hash x);
+            false)
+          else (
+            Hashtbl.add hash x [ a ];
+            true)
+      | _ -> true)
+    atoms
 
-let populate_hash (hash : (Ide.t, Aexp.t list) Hashtbl.t) (atoms: Atom.t list ) : Atom.t list =
-  List.filter(fun atom -> (
-    match atom with
-    | Atom.PointsTo (x, a) -> 
-      if Hashtbl.mem hash x then (Hashtbl.replace hash x (a :: Hashtbl.find hash x) ; false) 
-      else (Hashtbl.add hash x [a] ; true)
-    | _ -> true)) atoms
-  
-
-let create_equalities (aexps: Aexp.t list): Atom.t list=
+let create_equalities (aexps : Aexp.t list) : Atom.t list =
   match aexps with
   | [] -> []
-  |_ -> (  
-    let first = List.nth aexps 0 in
-    List.fold_right (fun (aexp) (eqs : Atom.t list) -> (Bool(Bexp.Cmp(Eq,first, aexp))::eqs)) aexps []
-  )
+  | _ ->
+      let first = List.nth aexps 0 in
+      List.fold_right
+        (fun aexp (eqs : Atom.t list) ->
+          Bool (Bexp.Cmp (Eq, first, aexp)) :: eqs)
+        aexps []
 
-
-let add_equalities (atoms_list: Atom.t list): Atom.t list =
+let add_equalities (atoms_list : Atom.t list) : Atom.t list =
   let seen_vars = Hashtbl.create 16 in
   let num_first = move_points_num_first atoms_list in
-  let no_dups = populate_hash (seen_vars)(num_first) in 
-  Hashtbl.fold (fun _ value prev_atoms -> create_equalities value @ prev_atoms) seen_vars no_dups
+  let no_dups = populate_hash seen_vars num_first in
+  Hashtbl.fold
+    (fun _ value prev_atoms -> create_equalities value @ prev_atoms)
+    seen_vars no_dups
 
 let simplify_conj (atoms : conj) : conj =
   (*discuss parametric impl*)
@@ -163,14 +174,20 @@ let simplify_conj (atoms : conj) : conj =
   let simpl_list = List.map (function at -> simplify_atom at) list_with_eq in
   (* Remove AND true *)
   let filt_list =
-    List.filter (function at -> at != Atom.Bool (Bexp.Const true)) simpl_list
+    List.filter
+      (function
+        | at -> (
+            match at with Atom.Bool (Bexp.Const true) -> false | _ -> true))
+      simpl_list
   in
   (* Remove duplicates // this is false*)
   let unique_list = remove_from_the_right filt_list in
   (* Checks if there is False *)
   if
     List.exists
-      (function at -> at == Atom.Bool (Bexp.Const false))
+      (function
+        | at -> (
+            match at with Atom.Bool (Bexp.Const false) -> true | _ -> false))
       unique_list
   then Conj [ Bool (Bexp.Const false) ]
     (* TODO check that his makes sense, if there are any duplicates pointers -> return false*)
@@ -233,9 +250,17 @@ let simply_dsj (sepjs : disj) : disj =
   (* Simplify each sepj inside the list *)
   let simpl_list = List.map (function sep -> simplify_sepj sep) sep_list in
   (* Removign OR false *)
+  (*List.filter
+      (function at -> at != Sepj [ Conj [ Bool (Bexp.Const false) ] ])
+      simpl_list*)
+
   let filt_list =
     List.filter
-      (function at -> at != Sepj [ Conj [ Bool (Bexp.Const false) ] ])
+      (function
+        | at -> (
+            match at with
+            | Sepj [ Conj [ Bool (Bexp.Const false) ] ] -> false
+            | _ -> true))
       simpl_list
   in
   (* Removing duplicates *)
@@ -243,7 +268,11 @@ let simply_dsj (sepjs : disj) : disj =
   if
     (* Check if there is OR true *)
     List.exists
-      (function at -> at == Sepj [ Conj [ Bool (Bexp.Const true) ] ])
+      (function
+        | at -> (
+            match at with
+            | Sepj [ Conj [ Bool (Bexp.Const true) ] ] -> true
+            | _ -> false))
       unique_list
   then Disj [ Sepj [ Conj [ Bool (Bexp.Const true) ] ] ]
   else Disj unique_list

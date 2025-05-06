@@ -13,16 +13,31 @@ let assert_eq (name : string) (got : prop) (expected : prop) =
     Printf.printf "FAIL: %s\n  got: %s\n  expected: %s\n" name (show_prop got)
       (show_prop expected)
 
-let test_remove_multiple_pointsto = 
-  let atoms_list = [
-                  Lis_project.Atom.PointsTo (Lis_project.Ide.raw_of_string "x", Var(Lis_project.Ide.raw_of_string "y"));
-                  Lis_project.Atom.PointsTo (Lis_project.Ide.raw_of_string "x", Num(5));
-                  Lis_project.Atom.PointsTo (Lis_project.Ide.raw_of_string "w", Var(Lis_project.Ide.raw_of_string "y"));
-                  Lis_project.Atom.PointsTo (Lis_project.Ide.raw_of_string "w", Var(Lis_project.Ide.raw_of_string "z"));
-                  Lis_project.Atom.PointsTo (Lis_project.Ide.raw_of_string "x", Lis_project.Aexp.Bop(Sum, Num(2), Num(3)));
-                  ] in
+let test_remove_multiple_pointsto =
+  let atoms_list =
+    [
+      Lis_project.Atom.PointsTo
+        ( Lis_project.Ide.raw_of_string "x",
+          Var (Lis_project.Ide.raw_of_string "y") );
+      Lis_project.Atom.PointsTo (Lis_project.Ide.raw_of_string "x", Num 5);
+      Lis_project.Atom.PointsTo
+        ( Lis_project.Ide.raw_of_string "w",
+          Var (Lis_project.Ide.raw_of_string "y") );
+      Lis_project.Atom.PointsTo
+        ( Lis_project.Ide.raw_of_string "w",
+          Var (Lis_project.Ide.raw_of_string "z") );
+      Lis_project.Atom.PointsTo
+        ( Lis_project.Ide.raw_of_string "x",
+          Lis_project.Aexp.Bop (Sum, Num 2, Num 3) );
+    ]
+  in
 
-List.iter (fun x -> (PPrint.ToChannel.pretty 1. 60 Out_channel.stdout(Lis_project.Atom.pretty x)); print_newline ()) (Lis_project.Simplify.add_equalities atoms_list) ;;
+  List.iter
+    (fun x ->
+      PPrint.ToChannel.pretty 1. 60 Out_channel.stdout
+        (Lis_project.Atom.pretty x);
+      print_newline ())
+    (Lis_project.Simplify.add_equalities atoms_list)
 
 let () =
   assert_eq "And(True, True)" (simplify_prop (And (a_true, a_true))) a_true;
