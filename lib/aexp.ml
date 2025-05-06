@@ -27,7 +27,7 @@ let rec subst (a : t) id id1 =
 let bop_to_string = function
   | Sum -> "+"
   | Sub -> "-"
-  | Mul -> "*"
+  | Mul -> "×"
   | Div -> "/"
   | Mod -> "%"
 

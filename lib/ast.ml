@@ -1,10 +1,3 @@
-type prop =
-  | Atom of Atom.t
-  | And of prop * prop
-  | Or of prop * prop
-  | Exists of Ide.t * prop
-  | Sep of prop * prop
-
 type cmd =
   | Skip
   | Assert of Bexp.t
@@ -21,4 +14,4 @@ type prog =
   | Choice of prog * prog
   | Star of prog
 
-type triple = prop * prog * prop
+type triple = Prop.t * prog * Prop.t

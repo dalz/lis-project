@@ -59,9 +59,9 @@ This file defines the common parser for SL+ and ISL+.
 %type <Aexp.t>   aexp
 %type <Bexp.t>   bexp
 %type <Atom.t>   atom
-%type <Ast.prop> prop
+%type <Prop.t>   prop
 %type <Ast.prog> prog 
-%type <Ast.prop> eprop
+%type <Prop.t>   eprop
 %type <Ast.prog> eprog 
 (** Declaring the starting point *)
 %start eprop eprog

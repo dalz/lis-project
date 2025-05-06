@@ -1,39 +1,21 @@
 open Base
-open Ast
-open Bexp
+open PPrint
 
-type conj = Conj of Atom.t list
-type sepj = Sepj of conj list
-type disj = Disj of sepj list
-type t = Ide.t list * disj
-
-(* substitutes every instance of identifier id with id1 in p *)
-let rec subst (p : prop) id id1 =
-  match p with
-  | Atom (Bool (Const true)) | Atom (Bool (Const false)) | Atom Emp -> p
-  | And (p1, p2) -> And (subst p1 id id1, subst p2 id id1)
-  | Or (p1, p2) -> Or (subst p1 id id1, subst p2 id id1)
-  (* exists: substitute only if id is not shadowed by iden *)
-  | Exists (iden, p1) ->
-      Exists (iden, if Ide.(iden = id) then p1 else subst p1 id id1)
-  | Atom (Bool b1) -> Atom (Bool (Bexp.subst b1 id id1))
-  | Atom (PointsTo (iden, a)) ->
-      Atom
-        (PointsTo ((if Ide.(iden = id) then id1 else iden), Aexp.subst a id id1))
-  | Atom (PointsToNothing iden) ->
-      Atom (PointsToNothing (if Ide.(iden = id) then id1 else iden))
-  | Sep (p1, p2) -> Sep (subst p1 id id1, subst p2 id id1)
+type conj = Conj of Atom.t list [@@deriving show]
+type sepj = Sepj of conj list [@@deriving show]
+type disj = Disj of sepj list [@@deriving show]
+type t = Ide.t list * disj [@@deriving show]
 
 (* converts the assertions to ∃-DNF:
  * ∃ (x_1 ... x_n) . (⋁_i q_i)
  * with q_i composed of ∧ and * only *)
 
-let or_ p q : prop = Or (p, q)
-let and_ p q : prop = And (p, q)
-let sep p q = Sep (p, q)
+let or_ p q : Prop.t = Or (p, q)
+let and_ p q : Prop.t = And (p, q)
+let sep p q : Prop.t = Sep (p, q)
 
 (* returns existential variables, used variables, prop without exists *)
-let rec extract_exists (exs : Ide.t list) (uxs : Ide.t list) (p : prop) =
+let rec extract_exists (exs : Ide.t list) (uxs : Ide.t list) (p : Prop.t) =
   let aux p q op =
     let exs, uxs, p = extract_exists exs uxs p in
     let exs, uxs, q = extract_exists exs uxs q in
@@ -44,7 +26,7 @@ let rec extract_exists (exs : Ide.t list) (uxs : Ide.t list) (p : prop) =
       let x, p =
         if List.mem uxs x ~equal:Ide.equal then
           let x' = Ide.fresh_of_t x in
-          (x', subst p x x')
+          (x', Prop.subst p x x')
         else (x, p)
       in
       extract_exists (x :: exs) (x :: uxs) p
@@ -55,7 +37,7 @@ let rec extract_exists (exs : Ide.t list) (uxs : Ide.t list) (p : prop) =
 
 (* Performs one normalization step on a prop that doesn't contain exists.
    Returns the new prop and a boolean, which is false if nothing changed. *)
-let rec normalize_step (p : prop) : prop * bool =
+let rec normalize_step (p : Prop.t) : Prop.t * bool =
   let left p _ = p in
   let right _ q = q in
   let distribute dir op1 op2 p q r =
@@ -85,25 +67,25 @@ let rec normalize_step (p : prop) : prop * bool =
   | Sep (p, q) -> visit sep p q
   | Exists _ -> failwith "exists should have been removed by extract_exists"
 
-(* Applies normalize_step until the prop is normalized. *)
-let rec normalize_iter (p : prop) : prop =
+(* Applies normalize_step until the Prop.t is normalized. *)
+let rec normalize_iter (p : Prop.t) : Prop.t =
   let p, chng = normalize_step p in
   if chng then normalize_iter p else p
 
-let of_prop (p : prop) : t =
-  let rec aux_and (p : prop) (Conj al) =
+let of_prop (p : Prop.t) : t =
+  let rec aux_and (p : Prop.t) (Conj al) =
     match p with
     | Atom a -> Conj (a :: al)
     | And (p, q) -> aux_and p (Conj al) |> aux_and q
     | _ -> failwith "p is not in normal form AND"
   in
-  let rec aux_sep (p : prop) (Sepj al) =
+  let rec aux_sep (p : Prop.t) (Sepj al) =
     match p with
     | Sep (p, q) -> aux_sep p (Sepj al) |> aux_sep q
     | Atom _ | And _ -> Sepj (aux_and p (Conj []) :: al)
     | _ -> failwith "p is not in normal form SEP"
   in
-  let rec aux_or (p : prop) (Disj al) =
+  let rec aux_or (p : Prop.t) (Disj al) =
     match p with
     | Or (p, q) -> aux_or p (Disj al) |> aux_or q
     | Atom _ | Sep _ | And _ -> Disj (aux_sep p (Sepj []) :: al)
@@ -111,3 +93,21 @@ let of_prop (p : prop) : t =
   in
   let xs, _, p = extract_exists [] [] p in
   (xs, aux_or (normalize_iter p) (Disj []))
+
+let aux_pretty op default f xs =
+  if List.is_empty xs then utf8string default
+  else
+    align
+      (group
+         ((if List.length xs > 1 then ifflat empty (blank 2) else empty)
+         ^^ separate_map (break 1 ^^ utf8string op ^^ space) f xs))
+
+let conj_pretty (Conj xs) = aux_pretty "∧" "⊤" Atom.pretty xs
+let sepj_pretty (Sepj xs) = aux_pretty "∗" "⊤" conj_pretty xs
+
+let pretty (xs, Disj ys) =
+  hang 2
+    (utf8string "∃" ^^ space
+    ^^ align (flow_map (break 1) (Fn.compose utf8string Ide.to_string) xs)
+    ^^ !^","
+    ^/^ aux_pretty "∨" "⊥" sepj_pretty ys)
