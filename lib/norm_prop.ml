@@ -111,3 +111,8 @@ let of_prop (p : prop) : t =
   in
   let xs, _, p = extract_exists [] [] p in
   (xs, aux_or (normalize_iter p) (Disj []))
+
+  
+let pretty_conj = function
+| Conj atoms_list ->
+    List.iter (fun x -> (PPrint.ToChannel.pretty 1. 60 Out_channel.stdout(Lis_project.Atom.pretty x)); Printf.printf (",")) atoms_list ;;
