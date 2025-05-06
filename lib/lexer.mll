@@ -19,14 +19,16 @@ rule read =
     | white { read lexbuf }
     | "(" { LPAREN }
     | ")" { RPAREN }
+    
     (** Arithmetic tokens *)
     | num { INT (int_of_string (Lexing.lexeme lexbuf)) }
     | "+" { PLUS }
     | "-" { MINUS }
-    | "*" | "∗" { STAR }
+    | "**" { MULT }
     | "/" { DIV }
     | "%" { MOD }
     | "-" { MINUS }
+
     (** Boolean tokens *)
     | "true" | "⊤" { BOOL (true) }
     | "false" | "⊥" { BOOL (false) }
@@ -36,15 +38,20 @@ rule read =
     | "<" { LT }
     | "<=" | "≤" { LE }
     | "=" { EQ }
+    
     (** Atom tokens *)
     | "emp" {EMP}
     | "->" | "↦" {REF}
     | "!->" | "!↦" | "↦̸" {NREF}
+    
     (** Proposition tokens*)
     | "exists" | "∃" {EXIST}
+    | "*" {SEP}
     | "." {DOT}
+    
     (** Program tokens *)
     | ";" { SEMICOLON }
+    
     (** Command tokens *)
     | "skip" { SKIP }
     | "?" { QUESTION }
@@ -54,9 +61,9 @@ rule read =
     | "alloc" { ALLOC }
     | "free" { FREE }
     | "error" { ERROR }
+    | "star" {STAR}
     (** string token *)
     | ide { ID (Lexing.lexeme lexbuf) }
     | eof {EOF}
-
 
 
