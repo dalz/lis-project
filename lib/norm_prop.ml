@@ -2,10 +2,10 @@ open Base
 open Ast
 open Bexp
 
-type conj = Conj of Atom.t list
-type sepj = Sepj of conj list
-type disj = Disj of sepj list
-type t = Ide.t list * disj
+type conj = Conj of Atom.t list [@@deriving show]
+type sepj = Sepj of conj list [@@deriving show]
+type disj = Disj of sepj list [@@deriving show]
+type t = Ide.t list * disj [@@deriving show]
 
 (* substitutes every instance of identifier id with id1 in p *)
 let rec subst (p : prop) id id1 =
@@ -111,8 +111,3 @@ let of_prop (p : prop) : t =
   in
   let xs, _, p = extract_exists [] [] p in
   (xs, aux_or (normalize_iter p) (Disj []))
-
-  
-let pretty_conj = function
-| Conj atoms_list ->
-    List.iter (fun x -> (PPrint.ToChannel.pretty 1. 60 Out_channel.stdout(Lis_project.Atom.pretty x)); Printf.printf (",")) atoms_list ;;
