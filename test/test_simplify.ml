@@ -39,6 +39,60 @@ let test_remove_multiple_pointsto =
       print_newline ())
     (Lis_project.Simplify.add_equalities atoms_list)
 
+
+let test_simplify_conj ()=
+        let () =
+        assert_eq "Conj[True, Emp, False, True]" 
+                (simplify_conj (Conj([a_true,Atom(Emp), a_false, a_true])))
+                Conj([a_false]);
+        assert_eq "Conj[True, True]"
+                (simplify_conj (Conj([a_true, a_true])))
+                Conj([a_true]);
+
+        let x_var = Lis_project.Ide.raw_of_string"x" in
+        let y_var = Lis_project.Ide.raw_of_string"y" in
+        let z_var = Lis_project.Ide.raw_of_string"z" in
+
+        assert_eq "Conj[x->y, True, x->z]"
+                (simplify_conj (Conj([Atom(PointsTo(x, Var(y))), a_true,
+                Atom(PointsTo(x, Var(z)))])))
+                Conj([Atom(PointsTo(x,Var(y))), Atom(Bool(Cmp(Eq, Var(y),
+                Var(z))))]);
+        in ();;
+
+let test_simplify_sepj () =
+        let () =
+ 
+        let x_var = Lis_project.Ide.raw_of_string"x" in
+        let y_var = Lis_project.Ide.raw_of_string"y" in
+        let z_var = Lis_project.Ide.raw_of_string"z" in
+
+        assert_eq "Sepj[Emp, x->y, Emp, x->z]"
+                (simplify_sepj (Sepj([Conj([Emp]), Conj([PointsTo(x,
+                Var(y))]), Conj([Emp]), Conj([PointsTo(x, Var(z))])])))
+                Sepj([Conj([a_false])]);
+        assert_eq "Sepj[Emp, x->y, x->y]"
+                (simplify_sepj (Sepj([Conj([Emp]), Conj([PointsTo(x,
+                Var(y))]), Conj([PointsTo(x, Var(y))])])))
+                Sepj([Conj([a_false])]);
+        in ();;
+
+let test_simplify_disj () =
+        let () =
+
+        let s_true = Sepj([Conj([a_true])]) in
+        let s_false = Sepj([Conj([a_false])]) in
+
+        assert_eq "Disj[False, False, False]"
+                (simplify_disj (Disj([s_false,s_false,s_false])))
+                Sepj([s_false]);
+        assert_eq "Disj[False, False, True]"
+                (simplify_disj (Disj([s_false,s_false,s_true])))
+                Sepj([s_true]);
+        in ();;
+
+
+
 let () =
   assert_eq "And(True, True)" (simplify_prop (And (a_true, a_true))) a_true;
 
