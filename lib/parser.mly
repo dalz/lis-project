@@ -22,9 +22,9 @@ This file defines the common parser for SL+ and ISL+.
 
 (* Bexp Tokens *)
 %token <bool> BOOL
-%token AND
+%token BOOL_AND
 %token SEP
-%token OR
+%token BOOL_OR
 %token NOT
 %token LT
 %token LE 
@@ -38,6 +38,8 @@ This file defines the common parser for SL+ and ISL+.
 (** Proposition Tokens *)
 %token EXIST
 %token DOT
+%token PROP_OR
+%token PROP_AND
 
 (** Program Tokens *)
 %token SEMICOLON
@@ -59,8 +61,12 @@ This file defines the common parser for SL+ and ISL+.
 (** Precedence and associativity *)
 %left PLUS MINUS
 %left MULT DIV MOD
-%left OR AND SEP
+%left BOOL_OR
+%left BOOL_AND
 %left SEMICOLON 
+%left PROP_OR
+%left SEP
+%left PROP_AND
 %right ASSIGN  
 %nonassoc NOT 
 %nonassoc DOT
@@ -137,8 +143,8 @@ cmd :
 prop :
     | LPAREN; p=prop; RPAREN {p}
     | a = atom {Atom a}
-    | p1 = prop; AND; p2 = prop {And (p1, p2)}
-    | p1 = prop; OR; p2 = prop {Or (p1, p2)}
+    | p1 = prop; PROP_AND; p2 = prop {And (p1, p2)}
+    | p1 = prop; PROP_OR; p2 = prop {Or (p1, p2)}
     | p1 = prop; SEP ; p2 = prop {Sep (p1, p2)} 
     | EXIST; s = ID; DOT p = prop {
         let t = raw_of_string s in
@@ -184,7 +190,7 @@ bexp :
     | a1 = aexp LT a2 = aexp { Cmp(Lt, a1, a2) }
     | a1 = aexp LE a2 = aexp { Cmp(Le, a1, a2) }
     | a1 = aexp EQ a2 = aexp { Cmp(Eq, a1, a2) }
-    | b1 = bexp AND b2 = bexp { Bop(And, b1, b2) }
-    | b1 = bexp OR b2 = bexp { Bop(Or, b1, b2) }
+    | b1 = bexp BOOL_AND b2 = bexp { Bop(And, b1, b2) }
+    | b1 = bexp BOOL_OR b2 = bexp { Bop(Or, b1, b2) }
     | NOT b = bexp { Not b }
     ;
