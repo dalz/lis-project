@@ -63,11 +63,10 @@ This file defines the common parser for SL+ and ISL+.
 %left SEMICOLON 
 %right ASSIGN  
 %nonassoc NOT 
-%nonassoc EXIST DOT
+%nonassoc DOT
 
 (* Dummy tokens *)
 %left PREFER_A
-%left PREFER_B
 
 (** Declaring types *)
 %type <Aexp.t>   aexp
