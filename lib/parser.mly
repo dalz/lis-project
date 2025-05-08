@@ -4,8 +4,6 @@ This file defines the common parser for SL+ and ISL+.
 
 (** Header *)
 %{
-    open Ast
-    open Ide
 %}
 
 (** Exp Token *)
@@ -56,13 +54,13 @@ This file defines the common parser for SL+ and ISL+.
 %nonassoc LPAREN RPAREN LBRACK RBRACK
 
 (** Declaring types *)
-%type <Aexp.t>   aexp
-%type <Bexp.t>   bexp
-%type <Atom.t>   atom
-%type <Prop.t>   prop
-%type <Ast.prog> prog 
-%type <Prop.t>   eprop
-%type <Ast.prog> eprog 
+%type <Aexp.t> aexp
+%type <Bexp.t> bexp
+%type <Atom.t> atom
+%type <Prop.t> prop
+%type <Prog.t> prog
+%type <Prop.t> eprop
+%type <Prog.t> eprog
 (** Declaring the starting point *)
 %start eprop eprog
 
@@ -82,40 +80,40 @@ eprop :
 
 prog :
     | LPAREN; p=prog; RPAREN {p}
-    | p1 = prog  SEMICOLON p2 = prog {Seq (p1, p2)}
-    | p1 = prog PLUS p2 = prog {Choice (p1, p2)}
-    | p1 = prog STAR {Star(p1)}
-    | c = cmd {Cmd c}
+    | p1 = prog  SEMICOLON p2 = prog {Prog.Seq (p1, p2)}
+    | p1 = prog PLUS p2 = prog {Prog.Choice (p1, p2)}
+    | p1 = prog STAR {Prog.Star(p1)}
+    | c = cmd {Prog.Cmd c}
     ;
 
 (* Command Rule *)
 cmd :
-    | SKIP {Skip}
-    | b = bexp QUESTION { Assert b }
+    | SKIP {Cmd.Skip}
+    | b = bexp QUESTION { Cmd.Assert b }
     | s = ID ASSIGN a = aexp {
-        let t = raw_of_string s in
-        Assign (t, a)
+        let t = Ide.raw_of_string s in
+        Cmd.Assign (t, a)
     }
     | s1 = ID ASSIGN LBRACK s2 = ID RBRACK {
-        let t1 = raw_of_string s1 in
-        let t2 = raw_of_string s2 in
-        AssignFromRef (t1, t2)
+        let t1 = Ide.raw_of_string s1 in
+        let t2 = Ide.raw_of_string s2 in
+        Cmd.AssignFromRef (t1, t2)
     }
     | LBRACK s1 = ID RBRACK ASSIGN s2 = ID {
-        let t1 = raw_of_string s1 in
-        let t2 = raw_of_string s2 in
-        AssignToRef (t1, t2)
+        let t1 = Ide.raw_of_string s1 in
+        let t2 = Ide.raw_of_string s2 in
+        Cmd.AssignToRef (t1, t2)
     }
     | s = ID ASSIGN ALLOC LPAREN RPAREN {
-        let t = raw_of_string s in
-        Alloc t
+        let t = Ide.raw_of_string s in
+        Cmd.Alloc t
     }
     | FREE LPAREN s = ID RPAREN {
-        let t = raw_of_string s in
-        Free t
+        let t = Ide.raw_of_string s in
+        Cmd.Free t
     }
     | ERROR LPAREN RPAREN {
-        Error
+        Cmd.Error
     }
     ;
 
@@ -127,7 +125,7 @@ prop :
     | p1 = prop OR p2 = prop {Or (p1, p2)}
     | p1 = prop STAR p2 = prop {Sep (p1, p2)} 
     | EXIST s = ID DOT p = prop {
-        let t = raw_of_string s in
+        let t = Ide.raw_of_string s in
         Exists (t, p) 
     }
     ;
@@ -137,11 +135,11 @@ atom :
     | LPAREN; at=atom; RPAREN {at}
     | b = bexp { Bool b }
     | s = ID REF a = aexp { 
-        let t = raw_of_string s in 
+        let t = Ide.raw_of_string s in 
         PointsTo (t, a)
      }
     | s = ID NREF {
-        let t = raw_of_string s in
+        let t = Ide.raw_of_string s in
         PointsToNothing t
     }
     | EMP { Emp }
@@ -158,7 +156,7 @@ aexp :
     | a1 = aexp MOD a2 = aexp { Bop(Mod, a1, a2) }
     | MINUS a = aexp { Uop(Neg, a) }
     | s = ID { 
-        let t = raw_of_string s in
+        let t = Ide.raw_of_string s in
         Var t
      }
     ;

@@ -1,5 +1,6 @@
 open Base
 open PPrint
+open Pp_util
 
 type t =
   | Atom of Atom.t
@@ -26,14 +27,11 @@ let rec subst (p : t) id id1 =
   | Sep (p1, p2) -> Sep (subst p1 id id1, subst p2 id id1)
 
 let pretty p =
-  let rec pp_assoc_bop prec t p1 op_str p2 =
-    let p = Pp_util.pp_bop (aux (prec - 1) p1) op_str (aux (prec - 1) p2) in
-    if t >= prec then parens p else p
-  and aux t = function
+  let rec aux t = function
     | Atom a -> Atom.pretty a
-    | And (p1, p2) -> pp_assoc_bop 3 t p1 "∧" p2
-    | Or (p1, p2) -> pp_assoc_bop 1 t p1 "∨" p2
-    | Sep (p1, p2) -> pp_assoc_bop 2 t p1 "∗" p2
+    | And (p1, p2) -> pp_assoc_bop aux 3 t p1 "∧" p2
+    | Or (p1, p2) -> pp_assoc_bop aux 1 t p1 "∨" p2
+    | Sep (p1, p2) -> pp_assoc_bop aux 2 t p1 "∗" p2
     | Exists (x, p) ->
         let prec = 0 in
         let x =
