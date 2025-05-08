@@ -4,6 +4,7 @@ type prop =
   | Or of prop * prop
   | Exists of Ide.t * prop
   | Sep of prop * prop
+[@@deriving show]
 
 type cmd =
   | Skip
