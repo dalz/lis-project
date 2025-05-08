@@ -42,6 +42,7 @@ let rec simplify_b (b : Bexp.t) : Bexp.t =
           | And -> Bop (Or, simplify_b (Not bexp1), simplify_b (Not bexp2))
           | Or -> Bop (And, simplify_b (Not bexp1), simplify_b (Not bexp2)))
       | Const b -> ( match b with true -> Const false | false -> Const true)
+      | Not b -> simplify_b b
       | _ -> Not (simplify_b b1))
   | Bop (op, bexp1, bexp2) -> (
       let eval1 = simplify_b bexp1 in
@@ -114,13 +115,13 @@ let rec remove_from_the_right l =
 
 (* Function that returns false if x -> w * x -> v, by scanning through all the atoms *)
 (* TODO use a set instead of list, this is highly inefficient with lists, how should we handle this?*)
-let has_no_duplicates lst =
+(* let has_no_duplicates lst =
   let rec aux seen = function
     | [] -> true
     | x :: xs ->
         if List.exists (fun y -> y = x) seen then false else aux (x :: seen) xs
   in
-  aux [] lst
+  aux [] lst *)
 
 let rec move_points_num_first (atoms_list : Atom.t list) : Atom.t list =
   match atoms_list with
@@ -190,9 +191,7 @@ let simplify_conj (atoms : conj) : conj =
             match at with Atom.Bool (Bexp.Const false) -> true | _ -> false))
       unique_list
   then Conj [ Bool (Bexp.Const false) ]
-    (* TODO check that his makes sense, if there are any duplicates pointers -> return false*)
-  else if has_no_duplicates atoms_list then Conj unique_list
-  else Conj [ Bool (Bexp.Const false) ]
+  else Conj unique_list 
 
 (* TODO check if x -> v and x -> w / v!=w *)
 (* Acumulate via qualitative constraint, and evaluate later in the program the results*)
@@ -234,15 +233,11 @@ let simplify_sepj (conjs : sepj) : sepj =
   let filter_list =
     List.filter (function conj_exp -> conj_exp != Conj [ Emp ]) simpl_list
   in
-  (* Remove duplicates *)
-  (* TODO: should we remove duplicates before or after checking if there's a conflict? *)
-  let unique_list = remove_from_the_right filter_list in
-
   (* If there's a conflict (x->v * x->w), the whole sepj becomes false *)
-  (* TODO: check this IF ELSE and the "sepj_has_conflict" function: I'm not sure if they are correct. The objective was to implement this simplification rule: x -> v * x -> w = false  *)
-  if sepj_has_conflict (Sepj unique_list) then
+  if sepj_has_conflict (Sepj filter_list) then
     Sepj [ Conj [ Bool (Bexp.Const false) ] ]
-  else Sepj unique_list
+  (* Remove duplicates *)
+  else Sepj (remove_from_the_right filter_list)
 
 let simply_dsj (sepjs : disj) : disj =
   (* Extract the list of sepjs from disj *)
