@@ -229,15 +229,28 @@ let simplify_sepj (conjs : sepj) : sepj =
   let simpl_list =
     List.map (function conj -> simplify_conj conj) conjs_list
   in
-  (* Remove * empt from the list of conjs *)
-  let filter_list =
-    List.filter (function conj_exp -> conj_exp != Conj [ Emp ]) simpl_list
-  in
-  (* If there's a conflict (x->v * x->w), the whole sepj becomes false *)
-  if sepj_has_conflict (Sepj filter_list) then
-    Sepj [ Conj [ Bool (Bexp.Const false) ] ]
-  (* Remove duplicates *)
-  else Sepj (remove_from_the_right filter_list)
+  (* Checks if there is False *)
+    if
+      List.exists
+        (function
+          | Conj atoms ->
+              List.exists
+                (function
+                  | Atom.Bool (Bexp.Const false) -> true 
+                  | _ -> false)
+                atoms)
+        simpl_list
+    then Sepj [ Conj [ Bool (Bexp.Const false) ] ]
+    else
+      (* Remove * empt from the list of conjs *)
+      let filter_list =
+        List.filter (function conj_exp -> conj_exp != Conj [ Emp ]) simpl_list
+      in
+      (* If there's a conflict (x->v * x->w), the whole sepj becomes false *)
+      if sepj_has_conflict (Sepj filter_list) then
+        Sepj [ Conj [ Bool (Bexp.Const false) ] ]
+      (* Remove duplicates *)
+      else Sepj (remove_from_the_right filter_list)
 
 let simply_dsj (sepjs : disj) : disj =
   (* Extract the list of sepjs from disj *)
