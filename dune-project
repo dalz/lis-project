@@ -20,7 +20,7 @@
  (name lis-project)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml base stdio ppx_deriving menhir pprint)
+ (depends ocaml base stdio ppx_deriving ppx_compare ppx_sexp_conv ppx_hash menhir pprint)
  (tags
   ("add topics" "to describe" your project)))
 

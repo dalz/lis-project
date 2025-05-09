@@ -1,6 +1,6 @@
 open Base
 
-type t = string * int [@@deriving show]
+type t = string * int [@@deriving show, compare, sexp_of, hash]
 
 let index_table = Hashtbl.create (module String)
 
