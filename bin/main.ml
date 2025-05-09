@@ -27,7 +27,7 @@ let _parse_program (s : string) : prog =
 
 let () =
   let propositions_to_test =
-    [ "exists x. true && false" ]
+    [ "exists x. emp" ]
     (*
   Both true and false return an empty list, is this ok???
   "exists x. true" -> [] (works)
@@ -61,6 +61,7 @@ let () =
       in
       let normalized_ast = Lis_project.Norm_prop.of_prop parsed_prop in
       let simplified = Lis_project.Simplify.simplify_t normalized_ast in
+      print_string "\nProp after second simplification\n";
       print_string (Lis_project.Norm_prop.show simplified);
       print_newline ())
     propositions_to_test

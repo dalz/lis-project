@@ -191,7 +191,7 @@ let simplify_conj (atoms : conj) : conj =
             match at with Atom.Bool (Bexp.Const false) -> true | _ -> false))
       unique_list
   then Conj [ Bool (Bexp.Const false) ]
-  else Conj unique_list 
+  else Conj unique_list
 
 (* TODO check if x -> v and x -> w / v!=w *)
 (* Acumulate via qualitative constraint, and evaluate later in the program the results*)
@@ -230,27 +230,35 @@ let simplify_sepj (conjs : sepj) : sepj =
     List.map (function conj -> simplify_conj conj) conjs_list
   in
   (* Checks if there is False *)
-    if
-      List.exists
-        (function
-          | Conj atoms ->
-              List.exists
-                (function
-                  | Atom.Bool (Bexp.Const false) -> true 
-                  | _ -> false)
-                atoms)
-        simpl_list
-    then Sepj [ Conj [ Bool (Bexp.Const false) ] ]
-    else
-      (* Remove * empt from the list of conjs *)
-      let filter_list =
-        List.filter (function conj_exp -> conj_exp != Conj [ Emp ]) simpl_list
+  if
+    List.exists
+      (function
+        | Conj atoms ->
+            List.exists
+              (function Atom.Bool (Bexp.Const false) -> true | _ -> false)
+              atoms)
+      simpl_list
+  then Sepj [ Conj [ Bool (Bexp.Const false) ] ]
+  else
+    (* Remove * empt from the list of conjs *)
+    let filter_list =
+      List.filter (function conj_exp -> conj_exp != Conj [ Emp ]) simpl_list
+    in
+    (* If there's a conflict (x->v * x->w), the whole sepj becomes false *)
+    if sepj_has_conflict (Sepj filter_list) then
+      Sepj [ Conj [ Bool (Bexp.Const false) ] ]
+    (* Remove duplicates *)
+      else
+      let (Sepj no_duplicates_list) =
+        Sepj (remove_from_the_right filter_list)
       in
-      (* If there's a conflict (x->v * x->w), the whole sepj becomes false *)
-      if sepj_has_conflict (Sepj filter_list) then
-        Sepj [ Conj [ Bool (Bexp.Const false) ] ]
-      (* Remove duplicates *)
-      else Sepj (remove_from_the_right filter_list)
+      let len = List.length no_duplicates_list in
+      Sepj
+        (List.filter
+           (fun x ->
+             match x with
+             | Conj l -> (l = [] && len = 1) || (l <> [] && len >= 1))
+           no_duplicates_list)
 
 let simply_dsj (sepjs : disj) : disj =
   (* Extract the list of sepjs from disj *)
@@ -289,6 +297,28 @@ let simplify_t (proposition : t) : t =
   match proposition with
   | id_list, disjunction -> (id_list, simply_dsj disjunction)
 
+let rec get_identifiers expr =
+  let result = [] in
+  match expr with
+  | Or (p1, p2) ->
+      let result = get_identifiers p1 @ get_identifiers p2 in
+      result
+  | And (p1, p2) ->
+      let result = get_identifiers p1 @ get_identifiers p2 in
+      result
+  | Exists (iden, p) ->
+      let result1 = get_identifiers p in
+      iden :: result1
+  | Sep (p1, p2) ->
+      let result = get_identifiers p1 @ get_identifiers p2 in
+      result
+  | Atom a -> (
+      match a with
+      | Bool _ -> result
+      | Emp -> result
+      | PointsTo (ident, _) -> ident :: result
+      | PointsToNothing ident -> ident :: result)
+
 (* TODO eventually add exist simplification for dummy variables *)
 let rec simplify_prop expr =
   match expr with
@@ -318,7 +348,11 @@ let rec simplify_prop expr =
       match simplify_prop p with
       | Atom (Bool (Bexp.Const true)) -> Atom (Bool (Bexp.Const true))
       | Atom (Bool (Bexp.Const false)) -> Atom (Bool (Bexp.Const false))
-      | _ -> Exists (iden, simplify_prop p))
+      | _ ->
+          let simplified_prop = simplify_prop p in
+          if List.exists (fun x -> x = iden) (get_identifiers simplified_prop)
+          then Exists (iden, simplified_prop)
+          else simplified_prop)
   | Sep (p1, p2) -> (
       let eval1 = simplify_prop p1 in
       let eval2 = simplify_prop p2 in
