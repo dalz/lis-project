@@ -15,11 +15,7 @@ open Ast
   in
   Norm_prop.of_prop p |> Norm_prop.show |> print_endline *)
 
-<<<<<<< HEAD
-let parse_proposition (s : string) : Prop.t =
-=======
 let _parse_proposition (s : string) : prop =
->>>>>>> heads/parser-sallo
   let lexbuf = Lexing.from_string s in
   let ast = Parser.eprop Lexer.read lexbuf in
   ast
