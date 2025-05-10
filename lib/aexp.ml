@@ -4,7 +4,7 @@ open PPrint
 type bop = Sum | Sub | Mul | Div | Mod [@@deriving show]
 type uop = Neg [@@deriving show]
 
-type t = Num of int | Var of Ide.t | Bop of bop * t * t | Uop of uop * t
+type t = Num of int | Var of Dummy.t | Bop of bop * t * t | Uop of uop * t
 [@@deriving show]
 
 let fv e =
@@ -20,7 +20,7 @@ let fv e =
 let rec subst (a : t) id id1 =
   match a with
   | Num _ -> a
-  | Var iden -> Var (if Ide.(iden = id) then id1 else iden)
+  | Var iden -> Var (if Dummy.equal iden id then id1 else iden)
   | Bop (op, ae1, ae2) -> Bop (op, subst ae1 id id1, subst ae2 id id1)
   | Uop (op, ae1) -> Uop (op, subst ae1 id id1)
 
@@ -47,7 +47,7 @@ let assoc = function
 let pretty e =
   let rec aux t = function
     | Num n -> !^(Int.to_string n)
-    | Var x -> !^(Ide.to_string x)
+    | Var x -> !^(Dummy.to_string x)
     | Bop (op, e1, e2) ->
         let t1 =
           prec op - 1

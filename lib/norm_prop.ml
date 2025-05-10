@@ -4,7 +4,7 @@ open PPrint
 type conj = Conj of Atom.t list [@@deriving show]
 type sepj = Sepj of conj list [@@deriving show]
 type disj = Disj of sepj list [@@deriving show]
-type t = Ide.t list * disj [@@deriving show]
+type t = Dummy.t list * disj [@@deriving show]
 
 (* converts the assertions to ∃-DNF:
  * ∃ (x_1 ... x_n) . (⋁_i q_i)
@@ -15,7 +15,7 @@ let and_ p q : Prop.t = And (p, q)
 let sep p q : Prop.t = Sep (p, q)
 
 (* returns existential variables, used variables, prop without exists *)
-let rec extract_exists (exs : Ide.t list) (uxs : Ide.t list) (p : Prop.t) =
+let rec extract_exists (exs : Dummy.t list) (uxs : Dummy.t list) (p : Prop.t) =
   let aux p q op =
     let exs, uxs, p = extract_exists exs uxs p in
     let exs, uxs, q = extract_exists exs uxs q in
@@ -24,8 +24,8 @@ let rec extract_exists (exs : Ide.t list) (uxs : Ide.t list) (p : Prop.t) =
   match p with
   | Exists (x, p) ->
       let x, p =
-        if List.mem uxs x ~equal:Ide.equal then
-          let x' = Ide.fresh_of_t x in
+        if List.mem uxs x ~equal:Dummy.equal then
+          let x' = Dummy.fresh_of_t x in
           (x', Prop.subst p x x')
         else (x, p)
       in
@@ -108,6 +108,6 @@ let sepj_pretty (Sepj xs) = aux_pretty "∗" "⊤" conj_pretty xs
 let pretty (xs, Disj ys) =
   hang 2
     (utf8string "∃" ^^ space
-    ^^ align (flow_map (break 1) (Fn.compose utf8string Ide.to_string) xs)
+    ^^ align (flow_map (break 1) (Fn.compose utf8string Dummy.to_string) xs)
     ^^ !^","
     ^/^ aux_pretty "∨" "⊥" sepj_pretty ys)

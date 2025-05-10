@@ -6,7 +6,7 @@ type t =
   | Atom of Atom.t
   | And of t * t
   | Or of t * t
-  | Exists of Ide.t * t
+  | Exists of Dummy.t * t
   | Sep of t * t
 [@@deriving show]
 
@@ -17,13 +17,14 @@ let rec subst (p : t) id id1 =
   | Or (p1, p2) -> Or (subst p1 id id1, subst p2 id id1)
   (* exists: substitute only if id is not shadowed by iden *)
   | Exists (iden, p1) ->
-      Exists (iden, if Ide.(iden = id) then p1 else subst p1 id id1)
+      Exists (iden, if Dummy.equal iden id then p1 else subst p1 id id1)
   | Atom (Bool b1) -> Atom (Bool (Bexp.subst b1 id id1))
   | Atom (PointsTo (iden, a)) ->
       Atom
-        (PointsTo ((if Ide.(iden = id) then id1 else iden), Aexp.subst a id id1))
+        (PointsTo
+           ((if Dummy.equal iden id then id1 else iden), Aexp.subst a id id1))
   | Atom (PointsToNothing iden) ->
-      Atom (PointsToNothing (if Ide.(iden = id) then id1 else iden))
+      Atom (PointsToNothing (if Dummy.equal iden id then id1 else iden))
   | Sep (p1, p2) -> Sep (subst p1 id id1, subst p2 id id1)
 
 let pretty p =
@@ -37,7 +38,8 @@ let pretty p =
         let x =
           group
             (utf8string "∃" ^^ space
-            ^^ align (utf8string (Ide.to_string x ^ ",") ^/^ aux (prec - 1) p))
+            ^^ align (utf8string (Dummy.to_string x ^ ",") ^/^ aux (prec - 1) p)
+            )
         in
         if t >= prec then parens x else x
   in

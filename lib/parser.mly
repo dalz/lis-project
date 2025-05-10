@@ -136,11 +136,8 @@ prop :
     | a = atom {Atom a}
     | p1 = prop; AND; p2 = prop {And (p1, p2)}
     | p1 = prop; OR; p2 = prop {Or (p1, p2)}
-    | p1 = prop; SEP ; p2 = prop {Sep (p1, p2)} 
-    | EXIST; s = ID; DOT p = prop {
-        let t = Ide.raw_of_string s in
-        Exists (t, p) 
-    }
+    | p1 = prop; SEP ; p2 = prop {Sep (p1, p2)}
+    | EXIST; s = ID; DOT p = prop {Exists (Dummy.raw s 0, p)}
     ;
  
 
@@ -148,11 +145,11 @@ prop :
 atom :
     | b = bexp %prec PREFER_A { Bool b }
     | s = ID; REF; a = aexp { 
-        let t = Ide.raw_of_string s in 
+        let t = Dummy.raw s 0 in 
         PointsTo (t, a)
      }
     | s = ID; NREF {
-        let t = Ide.raw_of_string s in
+        let t = Dummy.raw s 0 in
         PointsToNothing t
     }
     | EMP { Emp }
@@ -169,7 +166,7 @@ aexp :
     | a1 = aexp; MOD; a2 = aexp { Bop(Mod, a1, a2) }
     | MINUS; a = aexp { Uop(Neg, a) }
     | s = ID { 
-        let t = Ide.raw_of_string s in
+        let t = Dummy.raw s 0 in
         Var t
      }
     ;
