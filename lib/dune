@@ -1,6 +1,6 @@
 (library
  (name lis_project)
- (libraries base ppx_deriving pprint)
+ (libraries base ppx_deriving pprint stdio)
  (preprocess (pps ppx_deriving.show ppx_compare ppx_sexp_conv ppx_hash)))
 
 (menhir

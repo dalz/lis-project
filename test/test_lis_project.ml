@@ -1,3 +1,6 @@
-open Test_parser_printer
+(* open Test_parser_printer *)
+open Test_executor
 
-let () = test_parser_printer ()
+let () =
+  (* test_parser_printer () *)
+  test_executor ()

@@ -1,11 +1,11 @@
 open Base
 open PPrint
 
-type bop = Sum | Sub | Mul | Div | Mod [@@deriving show]
-type uop = Neg [@@deriving show]
+type bop = Sum | Sub | Mul | Div | Mod [@@deriving show, equal]
+type uop = Neg [@@deriving show, equal]
 
 type t = Num of int | Var of Dummy.t | Bop of bop * t * t | Uop of uop * t
-[@@deriving show]
+[@@deriving show, equal]
 
 let fv e =
   let rec aux e xs =
