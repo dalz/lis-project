@@ -3,7 +3,7 @@ open Stdio
 open Lis_project
 
 let f = 1.25
-let x = Ide.raw_of_string "x"
+let x = Dummy.raw "x" 0
 let pick opts = List.length opts |> Random.int |> List.nth_exn opts
 let decide p = Float.(Random.float 1. < p)
 

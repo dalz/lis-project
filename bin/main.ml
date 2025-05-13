@@ -1,5 +1,4 @@
 open Lis_project
-open Ast
 
 (* let () =
   let t = Atom True in
@@ -15,12 +14,12 @@ open Ast
   in
   Norm_prop.of_prop p |> Norm_prop.show |> print_endline *)
 
-let _parse_proposition (s : string) : prop =
+let parse_proposition (s : string) : Prop.t =
   let lexbuf = Lexing.from_string s in
   let ast = Parser.eprop Lexer.read lexbuf in
   ast
 
-let _parse_program (s : string) : prog =
+let _parse_program (s : string) : Prog.t =
   let lexbuf = Lexing.from_string s in
   let ast = Parser.eprog Lexer.read lexbuf in
   ast

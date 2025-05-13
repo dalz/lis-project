@@ -30,10 +30,10 @@ rule read =
     | "-" { MINUS }
 
     (** Boolean tokens *)
-    | "true" { BOOL (true) }
-    | "false" { BOOL (false) }
-    | "||"  { BOOL_OR }
-    | "&&"  { BOOL_AND }
+    | "true" | "⊤" { BOOL (true) }
+    | "false" | "⊥" { BOOL (false) }
+    | "||" | "∨" { OR }
+    | "&&" | "∧" { AND }
     | "!" | "¬" { NOT }
     | "<" { LT }
     | "<=" | "≤" { LE }
@@ -45,8 +45,6 @@ rule read =
     | "!->" | "!↦" | "↦̸" {NREF}
     
     (** Proposition tokens*)
-    | "\\/" {PROP_OR}
-    | "/\\" {PROP_AND}
     | "exists" | "∃" {EXIST}
     | "*" | "∗" {SEP}
     | "." {DOT}
@@ -67,5 +65,3 @@ rule read =
     (** string token *)
     | ide { ID (Lexing.lexeme lexbuf) }
     | eof {EOF}
-
-

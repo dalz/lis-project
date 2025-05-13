@@ -1,4 +1,3 @@
-open Ast
 open Norm_prop
 
 (*Check z3 arithmetic rules for deeper simplification which is already implementation*)
@@ -132,8 +131,8 @@ let rec move_points_num_first (atoms_list : Atom.t list) : Atom.t list =
   | a :: b :: rest -> move_points_num_first rest @ [ a; b ]
   | _ -> atoms_list
 
-let populate_hash (hash : (Ide.t, Aexp.t list) Hashtbl.t) (atoms : Atom.t list)
-    : Atom.t list =
+let populate_hash (hash : (Dummy.t, Aexp.t list) Hashtbl.t)
+    (atoms : Atom.t list) : Atom.t list =
   List.filter
     (fun atom ->
       match atom with
@@ -297,7 +296,7 @@ let simplify_t (proposition : t) : t =
   match proposition with
   | id_list, disjunction -> (id_list, simply_dsj disjunction)
 
-let rec get_identifiers expr =
+let rec get_identifiers (expr : Prop.t) =
   let result = [] in
   match expr with
   | Or (p1, p2) ->
@@ -320,7 +319,7 @@ let rec get_identifiers expr =
       | PointsToNothing ident -> ident :: result)
 
 (* TODO eventually add exist simplification for dummy variables *)
-let rec simplify_prop expr =
+let rec simplify_prop (expr : Prop.t) : Prop.t =
   match expr with
   | Or (prop1, prop2) -> (
       let eval1 = simplify_prop prop1 in
