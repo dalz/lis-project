@@ -26,7 +26,8 @@ let _parse_program (s : string) : Prog.t =
 
 let () =
   let propositions_to_test =
-    [ "exists x. emp" ]
+    [ "x = y && y = 5" ]
+    (* TODO not working *)
     (*
   Both true and false return an empty list, is this ok???
   "exists x. true" -> [] (works)
