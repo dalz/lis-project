@@ -65,5 +65,3 @@ rule read =
     (** string token *)
     | ide { ID (Lexing.lexeme lexbuf) }
     | eof {EOF}
-
-
