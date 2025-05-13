@@ -4,8 +4,6 @@ This file defines the common parser for SL+ and ISL+.
 
 (** Header *)
 %{
-    open Ast
-    open Ide
 %}
 
 (** Exp Token *)
@@ -22,9 +20,9 @@ This file defines the common parser for SL+ and ISL+.
 
 (* Bexp Tokens *)
 %token <bool> BOOL
-%token BOOL_AND
+%token AND
 %token SEP
-%token BOOL_OR
+%token OR
 %token NOT
 %token LT
 %token LE 
@@ -38,8 +36,6 @@ This file defines the common parser for SL+ and ISL+.
 (** Proposition Tokens *)
 %token EXIST
 %token DOT
-%token PROP_OR
-%token PROP_AND
 
 (** Program Tokens *)
 %token SEMICOLON
@@ -61,28 +57,23 @@ This file defines the common parser for SL+ and ISL+.
 (** Precedence and associativity *)
 %left PLUS MINUS
 %left MULT DIV MOD
-%left BOOL_OR
-%left BOOL_AND
+%left OR AND SEP
 %left SEMICOLON 
-%left PROP_OR
-%left SEP
-%left PROP_AND
 %right ASSIGN  
 %nonassoc NOT 
 %nonassoc DOT
 
 (* Dummy tokens *)
 %left PREFER_A
-%nonassoc RPAREN
 
 (** Declaring types *)
-%type <Aexp.t>   aexp
-%type <Bexp.t>   bexp
-%type <Atom.t>   atom
-%type <Ast.prop> prop
-%type <Ast.prog> prog 
-%type <Ast.prop> eprop
-%type <Ast.prog> eprog 
+%type <Aexp.t> aexp
+%type <Bexp.t> bexp
+%type <Atom.t> atom
+%type <Prop.t> prop
+%type <Prog.t> prog
+%type <Prop.t> eprop
+%type <Prog.t> eprog
 (** Declaring the starting point *)
 %start eprop eprog
 
@@ -102,40 +93,40 @@ eprop :
 
 prog :
     | LPAREN; p=prog; RPAREN {p}
-    | p1 = prog;  SEMICOLON; p2 = prog {Seq (p1, p2)}
-    | p1 = prog; PLUS; p2 = prog {Choice (p1, p2)}
-    | STAR; LPAREN; p = prog; RPAREN {Star(p)}
-    | c = cmd {Cmd c}
+    | p1 = prog;  SEMICOLON; p2 = prog {Prog.Seq (p1, p2)}
+    | p1 = prog; PLUS; p2 = prog {Prog.Choice (p1, p2)}
+    | STAR; LPAREN; p = prog; RPAREN {Prog.Star(p)}
+    | c = cmd {Prog.Cmd c}
     ;
 
 (* Command Rule *)
 cmd :
     | SKIP {Skip}
-    | b = bexp; QUESTION { Assert b }
+    | b = bexp; QUESTION { Cmd.Assert b }
     | s = ID; ASSIGN; a = aexp {
-        let t = raw_of_string s in
-        Assign (t, a)
+        let t = Ide.raw_of_string s in
+        Cmd.Assign (t, a)
     }
     | s1 = ID; ASSIGN; LBRACK s2 = ID RBRACK {
-        let t1 = raw_of_string s1 in
-        let t2 = raw_of_string s2 in
-        AssignFromRef (t1, t2)
+        let t1 = Ide.raw_of_string s1 in
+        let t2 = Ide.raw_of_string s2 in
+        Cmd.AssignFromRef (t1, t2)
     }
     | LBRACK; s1 = ID; RBRACK; ASSIGN; s2 = ID {
-        let t1 = raw_of_string s1 in
-        let t2 = raw_of_string s2 in
-        AssignToRef (t1, t2)
+        let t1 = Ide.raw_of_string s1 in
+        let t2 = Ide.raw_of_string s2 in
+        Cmd.AssignToRef (t1, t2)
     }
     | s = ID; ASSIGN; ALLOC; LPAREN; RPAREN {
-        let t = raw_of_string s in
-        Alloc t
+        let t = Ide.raw_of_string s in
+        Cmd.Alloc t
     }
     | FREE; LPAREN; s = ID; RPAREN {
-        let t = raw_of_string s in
-        Free t
+        let t = Ide.raw_of_string s in
+        Cmd.Free t
     }
     | ERROR; LPAREN; RPAREN {
-        Error
+        Cmd.Error
     }
     ;
 
@@ -143,13 +134,10 @@ cmd :
 prop :
     | LPAREN; p=prop; RPAREN {p}
     | a = atom {Atom a}
-    | p1 = prop; PROP_AND; p2 = prop {And (p1, p2)}
-    | p1 = prop; PROP_OR; p2 = prop {Or (p1, p2)}
-    | p1 = prop; SEP ; p2 = prop {Sep (p1, p2)} 
-    | EXIST; s = ID; DOT p = prop {
-        let t = raw_of_string s in
-        Exists (t, p) 
-    }
+    | p1 = prop; AND; p2 = prop {And (p1, p2)}
+    | p1 = prop; OR; p2 = prop {Or (p1, p2)}
+    | p1 = prop; SEP ; p2 = prop {Sep (p1, p2)}
+    | EXIST; s = ID; DOT p = prop {Exists (Dummy.raw s 0, p)}
     ;
  
 
@@ -157,11 +145,11 @@ prop :
 atom :
     | b = bexp %prec PREFER_A { Bool b }
     | s = ID; REF; a = aexp { 
-        let t = raw_of_string s in 
+        let t = Dummy.raw s 0 in 
         PointsTo (t, a)
      }
     | s = ID; NREF {
-        let t = raw_of_string s in
+        let t = Dummy.raw s 0 in
         PointsToNothing t
     }
     | EMP { Emp }
@@ -178,7 +166,7 @@ aexp :
     | a1 = aexp; MOD; a2 = aexp { Bop(Mod, a1, a2) }
     | MINUS; a = aexp { Uop(Neg, a) }
     | s = ID { 
-        let t = raw_of_string s in
+        let t = Dummy.raw s 0 in
         Var t
      }
     ;

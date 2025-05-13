@@ -8,7 +8,7 @@ type t =
   | Not of t
 [@@deriving show]
 
-val fv : t -> Ide.t list
-val subst : t -> Ide.t -> Ide.t -> t
+val fv : t -> Dummy.t list
+val subst : t -> Dummy.t -> Dummy.t -> t
 val cmp_to_string : cmp -> string
 val pretty : t -> PPrint.document

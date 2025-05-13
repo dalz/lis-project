@@ -38,7 +38,7 @@ let pretty e =
         pp_bop (Aexp.pretty e1) (cmp_to_string op) (Aexp.pretty e2)
     | Bop (op, e1, e2) ->
         let prec = match op with And -> 1 | Or -> 0 in
-        let ops = match op with And -> "∧" | Or -> "∨" in
+        let ops = match op with And -> "&" | Or -> "|" in
         let p = pp_bop (aux prec e1) ops (aux prec e2) in
         if t > prec then parens p else p
     | Not e -> !^"¬" ^^ aux Int.max_value e

@@ -1,9 +1,9 @@
 type t =
   | Bool of Bexp.t
-  | PointsTo of Ide.t * Aexp.t
+  | PointsTo of Dummy.t * Aexp.t
   | Emp
-  | PointsToNothing of Ide.t
+  | PointsToNothing of Dummy.t
 [@@deriving show]
 
-val fv : t -> Ide.t list
+val fv : t -> Dummy.t list
 val pretty : t -> PPrint.document

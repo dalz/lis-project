@@ -24,7 +24,7 @@ rule read =
     | num { INT (int_of_string (Lexing.lexeme lexbuf)) }
     | "+" { PLUS }
     | "-" { MINUS }
-    | "**" { MULT }
+    | "**" | "×" { MULT }
     | "/" { DIV }
     | "%" { MOD }
     | "-" { MINUS }
@@ -48,7 +48,7 @@ rule read =
     | "\\/" {PROP_OR}
     | "/\\" {PROP_AND}
     | "exists" | "∃" {EXIST}
-    | "*" {SEP}
+    | "*" | "∗" {SEP}
     | "." {DOT}
     
     (** Program tokens *)
@@ -59,11 +59,11 @@ rule read =
     | "?" { QUESTION }
     | "[" { LBRACK }
     | "]" { RBRACK }
-    | ":=" { ASSIGN }
+    | ":=" | "←" { ASSIGN }
     | "alloc" { ALLOC }
     | "free" { FREE }
     | "error" { ERROR }
-    | "star" {STAR}
+    | "star" | "⋆" {STAR}
     (** string token *)
     | ide { ID (Lexing.lexeme lexbuf) }
     | eof {EOF}
