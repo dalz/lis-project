@@ -21,4 +21,5 @@ val dummify_bexp :
   Bexp.t ->
   (Ide.t, Dummy.t, Ide.comparator_witness) Map.t * Bexp.t
 
+val subst : t -> Dummy.t -> Dummy.t -> t
 val pretty : t -> PPrint.document

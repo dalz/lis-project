@@ -123,6 +123,18 @@ let list_of_norm_prop (xs, Norm_prop.Disj ds) =
   in
   extract_chunks ds |> List.map ~f:build_state
 
+let subst { exvars; dummies; heap; path_cond } x y =
+  let f z = if Dummy.equal x z then y else z in
+  {
+    exvars = List.map exvars ~f (* TODO we should dedup here *);
+    dummies = Map.map dummies ~f;
+    heap =
+      Map.map heap ~f:(function
+        | Val a -> Val (Aexp.subst a x y)
+        | (Undefined | Dealloc) as z -> z);
+    path_cond = Bexp.subst path_cond x y;
+  }
+
 let pretty { exvars; dummies; heap; path_cond } =
   !^"-------------------------"
   ^^ hardline
