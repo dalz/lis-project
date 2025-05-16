@@ -72,7 +72,7 @@ let rec normalize_iter (p : Prop.t) : Prop.t =
   let p, chng = normalize_step p in
   if chng then normalize_iter p else p
 
-let of_prop (p : Prop.t) : t =
+let of_prop (p : Prop.t) ~prog_vars : t =
   let rec aux_and (p : Prop.t) (Conj al) =
     match p with
     | Atom a -> Conj (a :: al)
@@ -91,7 +91,7 @@ let of_prop (p : Prop.t) : t =
     | Atom _ | Sep _ | And _ -> Disj (aux_sep p (Sepj []) :: al)
     | _ -> failwith "p is not in normal form OR"
   in
-  let xs, _, p = extract_exists [] [] p in
+  let xs, _, p = extract_exists [] prog_vars p in
   (xs, aux_or (normalize_iter p) (Disj []))
 
 let aux_pretty op default f xs =
@@ -106,8 +106,10 @@ let conj_pretty (Conj xs) = aux_pretty "∧" "⊤" Atom.pretty xs
 let sepj_pretty (Sepj xs) = aux_pretty "∗" "⊤" conj_pretty xs
 
 let pretty (xs, Disj ys) =
-  hang 2
-    (utf8string "∃" ^^ space
-    ^^ align (flow_map (break 1) (Fn.compose utf8string Dummy.to_string) xs)
-    ^^ !^","
-    ^/^ aux_pretty "∨" "⊥" sepj_pretty ys)
+  let d = aux_pretty "∨" "⊥" sepj_pretty ys in
+  if List.is_empty xs then d
+  else
+    hang 2
+      (utf8string "∃" ^^ space
+      ^^ align (flow_map (break 1) (Fn.compose utf8string Dummy.to_string) xs)
+      ^^ !^"," ^/^ d)

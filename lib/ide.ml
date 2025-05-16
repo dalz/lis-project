@@ -35,6 +35,10 @@ module T = struct
       failwith "can't use Ide.raw_of_string after parsing ends"
     else (s, 0)
 
+  let assert_raw (_, i) =
+    if !done_parsing then failwith "can't use Ide.assert_raw after parsing ends"
+    else if i <> 0 then failwith "expected raw identifier"
+
   let fresh_of_string s =
     done_parsing := true;
     ( s,

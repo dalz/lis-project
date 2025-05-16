@@ -296,28 +296,6 @@ let simplify_t (proposition : t) : t =
   match proposition with
   | id_list, disjunction -> (id_list, simply_dsj disjunction)
 
-let rec get_identifiers (expr : Prop.t) =
-  let result = [] in
-  match expr with
-  | Or (p1, p2) ->
-      let result = get_identifiers p1 @ get_identifiers p2 in
-      result
-  | And (p1, p2) ->
-      let result = get_identifiers p1 @ get_identifiers p2 in
-      result
-  | Exists (iden, p) ->
-      let result1 = get_identifiers p in
-      iden :: result1
-  | Sep (p1, p2) ->
-      let result = get_identifiers p1 @ get_identifiers p2 in
-      result
-  | Atom a -> (
-      match a with
-      | Bool _ -> result
-      | Emp -> result
-      | PointsTo (ident, _) -> ident :: result
-      | PointsToNothing ident -> ident :: result)
-
 (* TODO eventually add exist simplification for dummy variables *)
 let rec simplify_prop (expr : Prop.t) : Prop.t =
   match expr with
@@ -349,8 +327,8 @@ let rec simplify_prop (expr : Prop.t) : Prop.t =
       | Atom (Bool (Bexp.Const false)) -> Atom (Bool (Bexp.Const false))
       | _ ->
           let simplified_prop = simplify_prop p in
-          if List.exists (fun x -> x = iden) (get_identifiers simplified_prop)
-          then Exists (iden, simplified_prop)
+          if List.exists (fun x -> x = iden) (Prop.fv simplified_prop) then
+            Exists (iden, simplified_prop)
           else simplified_prop)
   | Sep (p1, p2) -> (
       let eval1 = simplify_prop p1 in

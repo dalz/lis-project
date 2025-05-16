@@ -12,6 +12,13 @@ type t =
   | Error
 [@@deriving show]
 
+let fv = function
+  | Skip | Error -> ([], [])
+  | Assert e -> ([], Bexp.fv e)
+  | Assign (x, e) -> ([ x ], Aexp.fv e)
+  | AssignFromRef (x, y) | AssignToRef (x, y) -> ([ x; y ], [])
+  | Alloc x | Free x -> ([ x ], [])
+
 let pretty =
   let aux a b = group (hang 2 (utf8string a ^/^ b)) in
   function

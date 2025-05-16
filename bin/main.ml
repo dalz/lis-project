@@ -1,29 +1,43 @@
+open Base
+open Stdio
 open Lis_project
 
-(* let () =
-  let t = Atom True in
-  let x = Ide.raw_of_string "x" in
-  let y = Ide.raw_of_string "x" in
-  let ptn x = Atom (PointsToNothing x) in
-  let p =
-    And
-      ( Sep (Exists (x, Or (t, ptn x)), t),
-        Or
-          ( And (Exists (x, ptn x), Sep (Exists (y, Exists (y, ptn y)), ptn y)),
-            t ) )
+(* let parse_input (s : string) : Prop.t = *)
+(*   let lexbuf = Lexing.from_string s in *)
+(*   Parser.input Lexer.read lexbuf *)
+
+let print d =
+  PPrint.ToChannel.pretty 1. 60 Out_channel.stdout d;
+  Out_channel.print_endline "\n"
+
+let () =
+  let fname = (Sys.get_argv ()).(1) in
+  let pre, prog =
+    In_channel.with_file fname ~f:(fun ch ->
+        let lexbuf = Lexing.from_channel ch in
+        Parser.input Lexer.read lexbuf)
   in
-  Norm_prop.of_prop p |> Norm_prop.show |> print_endline *)
+  let prog_vars =
+    let ps, ds = Prog.fv prog in
+    List.map ps ~f:Dummy.raw_of_ide @ ds
+  in
+  let pre =
+    Simplify.simplify_prop pre
+    |> Norm_prop.of_prop ~prog_vars
+    |> Simplify.simplify_t
+  in
+  Out_channel.print_endline "Simplified precondition:\n";
+  print (Norm_prop.pretty pre);
+  Executor_state.list_of_norm_prop pre
+  |> List.iter ~f:(fun s ->
+         Out_channel.print_endline
+           "\n=========================\nExecution from state:\n";
+         print (Executor_state.pretty s);
+         match Executor.exec s prog with
+         | Some s -> print (Executor_state.pretty s)
+         | None -> Out_channel.print_endline "None")
 
-let parse_proposition (s : string) : Prop.t =
-  let lexbuf = Lexing.from_string s in
-  let ast = Parser.eprop Lexer.read lexbuf in
-  ast
-
-let _parse_program (s : string) : Prog.t =
-  let lexbuf = Lexing.from_string s in
-  let ast = Parser.eprog Lexer.read lexbuf in
-  ast
-
+(*
 let () =
   let propositions_to_test =
     [ "x = y && y = 5" ]
@@ -55,7 +69,7 @@ let () =
   *)
   in
   List.iter
-    (fun x ->
+    ~f:(fun x ->
       let parsed_prop =
         parse_proposition x |> Lis_project.Simplify.simplify_prop
       in
@@ -65,3 +79,4 @@ let () =
       print_string (Lis_project.Norm_prop.show simplified);
       print_newline ())
     propositions_to_test
+ *)

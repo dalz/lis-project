@@ -39,6 +39,10 @@ module T = struct
         | _ -> n);
       (x, n)
 
+  let raw_of_ide x =
+    Ide.assert_raw x;
+    (x, 0)
+
   let fresh_of_ide x =
     ( x,
       Hashtbl.update_and_return index_table x

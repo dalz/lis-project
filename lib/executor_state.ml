@@ -136,8 +136,7 @@ let subst { exvars; dummies; heap; path_cond } x y =
   }
 
 let pretty { exvars; dummies; heap; path_cond } =
-  !^"-------------------------"
-  ^^ hardline
+  hardline
   ^^ (if List.is_empty exvars then empty
       else
         utf8string "∃ "
@@ -172,4 +171,5 @@ let pretty { exvars; dummies; heap; path_cond } =
                utf8string (Ide.to_string x ^ " = " ^ Dummy.to_string x'))
              (Map.to_alist dummies))
         ^^ hardline ^^ utf8string "∧ ")
-  ^^ Bexp.pretty path_cond
+  ^^ Bexp.pretty path_cond ^^ hardline
+  ^^ !^"-------------------------"

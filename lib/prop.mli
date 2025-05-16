@@ -6,5 +6,6 @@ type t =
   | Sep of t * t
 [@@deriving show]
 
+val fv : t -> Dummy.t list
 val subst : t -> Dummy.t -> Dummy.t -> t
 val pretty : t -> PPrint.document

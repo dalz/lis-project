@@ -10,6 +10,11 @@ type t =
   | Sep of t * t
 [@@deriving show]
 
+let rec fv = function
+  | Atom a -> Atom.fv a
+  | And (p1, p2) | Or (p1, p2) | Sep (p1, p2) -> fv p1 @ fv p2
+  | Exists (x, p) -> fv p |> List.filter ~f:(Fn.non (Dummy.equal x))
+
 let rec subst (p : t) id id1 =
   match p with
   | Atom (Bool (Const true)) | Atom (Bool (Const false)) | Atom Emp -> p

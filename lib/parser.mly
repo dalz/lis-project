@@ -54,6 +54,9 @@ This file defines the common parser for SL+ and ISL+.
 (** String Token *)
 %token <string> ID
 
+%token LBRACE
+%token RBRACE
+
 (** Precedence and associativity *)
 %left PLUS MINUS
 %left MULT DIV MOD
@@ -74,10 +77,15 @@ This file defines the common parser for SL+ and ISL+.
 %type <Prog.t> prog
 %type <Prop.t> eprop
 %type <Prog.t> eprog
+%type <Prop.t * Prog.t> input
 (** Declaring the starting point *)
-%start eprop eprog
+%start input eprop eprog
 
 %% (** ends the declaration section *)
+
+input :
+    | LBRACE; pre = prop; RBRACE; prog = prog; EOF { (pre, prog) }
+    ;
 
 (** Grammar rules *)
 

@@ -4,6 +4,14 @@ open PPrint
 type t = Cmd of Cmd.t | Seq of t * t | Choice of t * t | Star of t
 [@@deriving show]
 
+let rec fv = function
+  | Cmd c -> Cmd.fv c
+  | Seq (p1, p2) | Choice (p1, p2) ->
+      let xs, xs' = fv p1 in
+      let ys, ys' = fv p2 in
+      (xs @ ys, xs' @ ys')
+  | Star p -> fv p
+
 let pretty =
   let rec aux t = function
     | Cmd c -> Cmd.pretty c

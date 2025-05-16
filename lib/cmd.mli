@@ -9,4 +9,5 @@ type t =
   | Error
 [@@deriving show]
 
+val fv : t -> Ide.t list * Dummy.t list
 val pretty : t -> PPrint.document

@@ -8,7 +8,7 @@ This file defines the common parser for SL+ and ISL+.
 }
 
 (** Identifiers - Named Regular Expressions *)
-let white = [' ' '\t']+
+let white = [' ' '\t' '\n']+
 let num = ['0'-'9']+
 let ide = ['a'-'z' 'A'-'Z']+
 
@@ -19,7 +19,11 @@ rule read =
     | white { read lexbuf }
     | "(" { LPAREN }
     | ")" { RPAREN }
-    
+
+    (** Triples *)
+    | "{" { LBRACE }
+    | "}" { RBRACE }
+
     (** Arithmetic tokens *)
     | num { INT (int_of_string (Lexing.lexeme lexbuf)) }
     | "+" { PLUS }
@@ -65,3 +69,4 @@ rule read =
     (** string token *)
     | ide { ID (Lexing.lexeme lexbuf) }
     | eof {EOF}
+    | _ as c { failwith (Printf.sprintf "unexpected character: %C" c) }
