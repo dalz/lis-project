@@ -7,7 +7,6 @@ type heapval =
   | Dealloc (* x !↦ *)
 
 type t = {
-  exvars : Dummy.t list;
   dummies : (Ide.t, Dummy.t, Ide.comparator_witness) Map.t;
   heap : (Dummy.t, heapval, Dummy.comparator_witness) Map.t;
   path_cond : Bexp.t;
@@ -109,11 +108,10 @@ let build_heap chunks =
              | `Duplicate -> failwith "TODO simplification should have noticed?"
              ))
 
-let list_of_norm_prop (xs, Norm_prop.Disj ds) =
+let list_of_norm_prop (_, Norm_prop.Disj ds) =
   let dummies, ds = dummify_ds ds in
   let build_state (chunks, bool_preds) =
     {
-      exvars = xs;
       dummies;
       heap = build_heap chunks;
       path_cond =
@@ -123,10 +121,9 @@ let list_of_norm_prop (xs, Norm_prop.Disj ds) =
   in
   extract_chunks ds |> List.map ~f:build_state
 
-let subst { exvars; dummies; heap; path_cond } x y =
+let subst { dummies; heap; path_cond } x y =
   let f z = if Dummy.equal x z then y else z in
   {
-    exvars = List.map exvars ~f (* TODO we should dedup here *);
     dummies = Map.map dummies ~f;
     heap =
       Map.map heap ~f:(function
@@ -135,33 +132,32 @@ let subst { exvars; dummies; heap; path_cond } x y =
     path_cond = Bexp.subst path_cond x y;
   }
 
-let pretty { exvars; dummies; heap; path_cond } =
-  hardline
-  ^^ (if List.is_empty exvars then empty
-      else
-        utf8string "∃ "
-        ^^ hang 4
-             (separate_map (break 1)
-                (fun x' -> utf8string (Dummy.to_string x'))
-                exvars)
-        ^^ !^"," ^^ hardline)
-  ^^ (if Map.is_empty heap then empty
-      else
-        group
-          (align
-             (separate_map
-                (space ^^ utf8string "∗" ^^ break 1)
-                (fun (x', hv) ->
-                  utf8string (Dummy.to_string x')
-                  ^^ space
-                  ^^
-                  match hv with
-                  | Val e ->
-                      group (utf8string "↦" ^^ break 1 ^^ align (Aexp.pretty e))
-                  | Undefined -> utf8string "↦ _"
-                  | Dealloc -> utf8string "↦̸")
-                (Map.to_alist heap)))
-        ^^ hardline ^^ utf8string "∧ ")
+let pretty { dummies; heap; path_cond } =
+  (* ^^ (if List.is_empty exvars then empty *)
+  (*     else *)
+  (*       utf8string "∃ " *)
+  (*       ^^ hang 4 *)
+  (*            (separate_map (break 1) *)
+  (*               (fun x' -> utf8string (Dummy.to_string x')) *)
+  (*               exvars) *)
+  (*       ^^ !^"," ^^ hardline) *)
+  (if Map.is_empty heap then empty
+   else
+     group
+       (align
+          (separate_map
+             (space ^^ utf8string "∗" ^^ break 1)
+             (fun (x', hv) ->
+               utf8string (Dummy.to_string x')
+               ^^ space
+               ^^
+               match hv with
+               | Val e ->
+                   group (utf8string "↦" ^^ break 1 ^^ align (Aexp.pretty e))
+               | Undefined -> utf8string "↦ _"
+               | Dealloc -> utf8string "↦̸")
+             (Map.to_alist heap)))
+     ^^ hardline ^^ utf8string "∧ ")
   ^^ (if Map.is_empty dummies then empty
       else
         hang 2

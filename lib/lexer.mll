@@ -11,6 +11,7 @@ This file defines the common parser for SL+ and ISL+.
 let white = [' ' '\t' '\n']+
 let num = ['0'-'9']+
 let ide = ['a'-'z' 'A'-'Z']+
+let comment = '#' [^ '\n' '\r']*
 
 (** rule *)
 rule read =
@@ -69,4 +70,5 @@ rule read =
     (** string token *)
     | ide { ID (Lexing.lexeme lexbuf) }
     | eof {EOF}
+    | comment { Lexing.new_line lexbuf; read lexbuf }
     | _ as c { failwith (Printf.sprintf "unexpected character: %C" c) }

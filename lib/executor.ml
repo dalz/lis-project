@@ -12,7 +12,7 @@ let add_path_cond s e =
 let assign s x e =
   let x' = Dummy.fresh_of_ide x in
   let dummies, e' = Executor_state.dummify_aexp s.dummies e in
-  let e' = Simplify.simplify_a e' in
+  let e' = Aexp.simpl e' in
   {
     s with
     (* x = x' ∧ x' = e *)

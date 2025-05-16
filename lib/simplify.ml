@@ -2,30 +2,6 @@ open Norm_prop
 
 (*Check z3 arithmetic rules for deeper simplification which is already implementation*)
 (*Evaluate if its better to use  Z3 or reeimplement it *)
-let rec simplify_a (a : Aexp.t) : Aexp.t =
-  match a with
-  | Num n -> Num n
-  | Var t -> Var t
-  | Bop (a_op, a1, a2) -> (
-      let s_a1 = simplify_a a1 in
-      let s_a2 = simplify_a a2 in
-      match (s_a1, s_a2) with
-      | Num n1, Num n2 -> (
-          match a_op with
-          | Sum -> Num (n1 + n2)
-          | Sub -> Num (n1 - n2)
-          | Mul -> Num (n1 * n2)
-          | Div -> (
-              match n2 with
-              | 0 -> failwith "Attempting division by zero"
-              (* This rounds if result is not integer *)
-              | _ -> Num (n1 / n2))
-          | Mod -> Num (n1 mod n2))
-      | _ -> Bop (a_op, s_a1, s_a2))
-  | Uop (_, n) -> (
-      match n with
-      | Uop (Neg, a1) -> simplify_a a1
-      | _ -> Uop (Neg, simplify_a n))
 
 let rec simplify_b (b : Bexp.t) : Bexp.t =
   match b with
@@ -66,8 +42,8 @@ let rec simplify_b (b : Bexp.t) : Bexp.t =
               | Const false -> eval1
               | _ -> Bop (Or, eval1, eval2))))
   | Cmp (op, aexp1, aexp2) -> (
-      let eval1 = simplify_a aexp1 in
-      let eval2 = simplify_a aexp2 in
+      let eval1 = Aexp.simpl aexp1 in
+      let eval2 = Aexp.simpl aexp2 in
       match op with
       | Le -> (
           match eval1 with
@@ -90,11 +66,6 @@ let rec simplify_b (b : Bexp.t) : Bexp.t =
               | Num n2 ->
                   Const (n1 = n2) (* Use single '=' for structural equality *)
               | _ -> Cmp (Eq, eval1, eval2))
-          | Var v1 -> (
-              match eval2 with
-              | Var v2 ->
-                  Const (v1 = v2) (* Use single '=' for structural equality *)
-              | _ -> Cmp (Eq, eval1, eval2))
           | _ -> Cmp (Eq, eval1, eval2)))
 
 let simplify_atom (at : Atom.t) : Atom.t =
@@ -102,7 +73,7 @@ let simplify_atom (at : Atom.t) : Atom.t =
   | Bool b -> Bool (simplify_b b)
   | Emp -> Emp
   | PointsToNothing t -> PointsToNothing t
-  | PointsTo (t, a) -> PointsTo (t, simplify_a a)
+  | PointsTo (t, a) -> PointsTo (t, Aexp.simpl a)
 
 (* TODO check that this works as expected *)
 (* !!! copy and pasted *)

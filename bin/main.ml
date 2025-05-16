@@ -2,10 +2,6 @@ open Base
 open Stdio
 open Lis_project
 
-(* let parse_input (s : string) : Prop.t = *)
-(*   let lexbuf = Lexing.from_string s in *)
-(*   Parser.input Lexer.read lexbuf *)
-
 let print d =
   PPrint.ToChannel.pretty 1. 60 Out_channel.stdout d;
   Out_channel.print_endline "\n"
@@ -17,6 +13,8 @@ let () =
         let lexbuf = Lexing.from_channel ch in
         Parser.input Lexer.read lexbuf)
   in
+  Prop.show pre |> Out_channel.print_endline;
+  Prog.show prog |> Out_channel.print_endline;
   let prog_vars =
     let ps, ds = Prog.fv prog in
     List.map ps ~f:Dummy.raw_of_ide @ ds
@@ -36,6 +34,8 @@ let () =
          match Executor.exec s prog with
          | Some s -> print (Executor_state.pretty s)
          | None -> Out_channel.print_endline "None")
+
+(* let () = Out_channel.print_endline (Aexp.show (Aexp.simpl (Num 1))) *)
 
 (*
 let () =

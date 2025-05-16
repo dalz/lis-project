@@ -3,7 +3,6 @@ open Base
 type heapval = Val of Aexp.t | Undefined | Dealloc
 
 type t = {
-  exvars : Dummy.t list;
   dummies : (Ide.t, Dummy.t, Ide.comparator_witness) Map.t;
   heap : (Dummy.t, heapval, Dummy.comparator_witness) Map.t;
   path_cond : Bexp.t;
