@@ -6,6 +6,8 @@ let print d =
   PPrint.ToChannel.pretty 1. 60 Out_channel.stdout d;
   Out_channel.print_endline "\n"
 
+let print_state s = print (Executor_state.pretty s)
+
 let () =
   let fname = (Sys.get_argv ()).(1) in
   let pre, prog =
@@ -31,9 +33,15 @@ let () =
          Out_channel.print_endline
            "\n=========================\nExecution from state:\n";
          print (Executor_state.pretty s);
-         match Executor.exec s prog with
-         | Some s -> print (Executor_state.pretty s)
-         | None -> Out_channel.print_endline "None")
+         match Sl_executor.exec ~on_step:print_state s prog with
+         | Ok s -> print_state s
+         | Err s ->
+             Out_channel.print_endline "[error]";
+             print_state s
+         | Stuck s ->
+             Out_channel.print_endline "[stuck]";
+             print_state s
+         | Unreachable -> Out_channel.print_endline "Unreachable")
 
 (* let () = Out_channel.print_endline (Aexp.show (Aexp.simpl (Num 1))) *)
 
