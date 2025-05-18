@@ -53,8 +53,8 @@ let simpl a =
     | Bop (Div, Num 0, _)
     | Bop (Mod, _, Num 1) ->
         Num 0
-    | Bop (Sub, a, b) when equal a b -> Num 0
-    | Bop (Div, a, b) when equal a b -> Num 1
+    | Bop (Sub, a, a') when equal a a' -> Num 0
+    | Bop (Div, a, a') when equal a a' -> Num 1
     | Bop (Div, _, Num 0) -> failwith "division by zero"
     (* push down negation *)
     | Uop (Neg, Bop (((Sum | Sub) as op), a, b)) ->
@@ -64,18 +64,34 @@ let simpl a =
     (* eliminate negation *)
     | Bop (((Mul | Div) as op), Uop (Neg, a), Uop (Neg, b)) ->
         Bop (op, aux a, aux b)
+    | Bop (((Sum | Sub) as op), (Uop (Neg, _) as a), Num n) ->
+        (* avoid infinite loops -x+1 -> 1-x -> -x+1 -> ... *)
+        Bop (op, aux a, Num n)
     | Bop (((Sum | Sub) as op), Uop (Neg, a), b)
     | Bop (((Sum | Sub) as op), b, Uop (Neg, a)) ->
         Bop (mulop Sub op, aux b, aux a)
+    | Bop (((Sum | Sub) as op), a, Num n) when n < 0 ->
+        Bop (mulop Sub op, aux a, Num (-n))
     (* push negation right (more chances of finding numbers) *)
     | Bop (((Mul | Div | Mod) as op), Uop (Neg, a), b) ->
         Bop (op, aux a, Uop (Neg, aux b))
-    (* push numbers right with commutative ops *)
+    (* push numbers right *)
     | Bop (((Sum | Mul) as op), Num n, a) -> Bop (op, aux a, Num n)
+    | Bop (Sub, Num n, a) -> Bop (Sum, Uop (Neg, aux a), Num n)
     (* push parentheses right *)
     | Bop (Mul, Bop (Mul, a, b), c) -> Bop (Mul, aux a, Bop (Mul, aux b, aux c))
     | Bop (((Sum | Sub) as op1), Bop (((Sum | Sub) as op2), a, b), c) ->
-        Bop (op1, aux a, Bop (mulop op1 op2, aux b, aux c))
+        Bop (op2, aux a, Bop (mulop op1 op2, aux b, aux c))
+    (* multiplication is repeated addition *)
+    | Bop (Sum, a, b) when equal a b -> Bop (Mul, a, Num 2)
+    | Bop (((Sum | Sub) as op), a, Bop (Mul, a', b)) when equal a a' ->
+        Bop (Mul, aux a, Bop (op, Num 1, aux b))
+    | Bop (((Sum | Sub) as op), Bop (Mul, a', b), a) when equal a a' ->
+        Bop (Mul, aux a, Bop (op, aux b, Num 1))
+    | Bop (((Sum | Sub) as op), a, Bop (Mul, b, a')) when equal a a' ->
+        Bop (Mul, aux a, Bop (op, Num 1, aux b))
+    | Bop (((Sum | Sub) as op), Bop (Mul, b, a'), a) when equal a a' ->
+        Bop (Mul, aux a, Bop (op, aux b, Num 1))
     (* special interaction with div and mul *)
     | Bop (Div, Bop (Mul, a, Num n), Num m) when n % m = 0 ->
         Bop (Mul, aux a, Num (n / m))
@@ -86,6 +102,8 @@ let simpl a =
   in
   let rec fix f x =
     let y = f x in
+    (* pretty y |> PPrint.ToChannel.pretty 1. 60 Out_channel.stdout; *)
+    (* Stdio.Out_channel.print_endline ""; *)
     if equal x y then x else fix f y
   in
   fix aux a
