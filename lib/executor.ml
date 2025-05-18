@@ -16,6 +16,7 @@ type config = {
     (Executor_state.t -> Executor_state.t status) ->
     Executor_state.t status;
   on_step : Executor_state.t -> unit;
+  alloc_rule : Executor_state.t -> Ide.t -> Executor_state.t status;
 }
 
 let add_path_cond s e =
@@ -35,7 +36,7 @@ let assign s x e =
 
 let store s x' v = { s with heap = Map.set s.heap ~key:x' ~data:v }
 
-let exec_cmd s =
+let exec_cmd ~alloc_rule s =
   let ( let* ) x f =
     match x with Ok y -> f y | (Err _ | Stuck _ | Unreachable) as x -> x
   in
@@ -77,13 +78,7 @@ let exec_cmd s =
       in
       let* _ = heap_has x' in
       Ok (store s x' (Val v))
-  | Alloc x ->
-      (* TODO Alloc2 ISL *)
-      let x' = Dummy.fresh_of_ide x in
-      Ok
-        (store
-           { s with dummies = Map.set s.dummies ~key:x ~data:x' }
-           x' Undefined)
+  | Alloc x -> alloc_rule s x
   | Free x ->
       let* x' = dummy_of x in
       (* TODO null *)
@@ -91,13 +86,13 @@ let exec_cmd s =
       Ok (store s x' Dealloc)
   | Error -> Err s
 
-let rec exec ({ bind = ( let* ); on_step } as cfg) s p =
+let rec exec ({ bind = ( let* ); on_step; alloc_rule } as cfg) s p =
   let open Prog in
   if Bexp.(equal s.path_cond (Const false)) then Unreachable
   else
     let* s =
       match p with
-      | Cmd c -> exec_cmd s c
+      | Cmd c -> exec_cmd ~alloc_rule s c
       | Seq (p1, p2) ->
           let* s = exec cfg s p1 in
           on_step s;
