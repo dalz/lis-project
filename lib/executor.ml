@@ -2,43 +2,37 @@ open Base
 open Executor_state
 
 (* TODO *)
-let simplify s = { s with path_cond = Simplify.simplify_b s.path_cond }
+let simplify s = s (* { s with path_cond = Simplify.simplify_b s.path_cond } *)
 
 type 'a status =
   | Ok of 'a
   | Err of Executor_state.t
   | Stuck of Executor_state.t
-  | Unreachable
 
 type config = {
   bind :
     Executor_state.t status ->
-    (Executor_state.t -> Executor_state.t status) ->
-    Executor_state.t status;
+    (Executor_state.t -> Executor_state.t status list) ->
+    Executor_state.t status list;
   on_step : Executor_state.t -> unit;
   alloc_rule : Executor_state.t -> Ide.t -> Executor_state.t status;
 }
-
-let add_path_cond s e =
-  let dummies, e' = Executor_state.dummify_bexp s.dummies e in
-  Bexp.{ s with dummies; path_cond = Bop (And, s.path_cond, e') }
 
 let assign s x e =
   let x' = Dummy.fresh_of_ide x in
   let dummies, e' = Executor_state.dummify_aexp s.dummies e in
   let e' = Aexp.simpl e' in
-  {
-    s with
-    (* x = x' ∧ x' = e *)
-    dummies = Map.set dummies ~key:x ~data:x';
-    path_cond = Bexp.(Bop (And, s.path_cond, Cmp (Eq, Var x', e')));
-  }
+  (* x = x' ∧ x' = e *)
+  Executor_state.add_bexp_to_path_cond
+    { s with dummies = Map.set dummies ~key:x ~data:x' }
+    (Cmp (Eq, Var x', e'))
+  |> List.hd_exn
 
 let store s x' v = { s with heap = Map.set s.heap ~key:x' ~data:v }
 
 let exec_cmd ~alloc_rule s =
   let ( let* ) x f =
-    match x with Ok y -> f y | (Err _ | Stuck _ | Unreachable) as x -> x
+    match x with Ok y -> f y | (Err _ | Stuck _) as x -> [ x ]
   in
   let dummy_of x =
     match Map.find s.dummies x with Some x' -> Ok x' | None -> Stuck s
@@ -58,16 +52,17 @@ let exec_cmd ~alloc_rule s =
   in
   let open Cmd in
   function
-  | Skip -> Ok s
-  | Assert e -> Ok (add_path_cond s e)
-  | Assign (x, e) -> Ok (assign s x e)
+  | Skip -> [ Ok s ]
+  | Assert e ->
+      List.map (Executor_state.add_bexp_to_path_cond s e) ~f:(fun s -> Ok s)
+  | Assign (x, e) -> [ Ok (assign s x e) ]
   | AssignFromRef (x, y) ->
       (* if y has no dummy variable, it has never been used before
          (in the program or precondition) so it is not allocated *)
       let* y' = dummy_of y in
       (* TODO y' null *)
       let* e = heap_val y' in
-      Ok (assign s x e)
+      [ Ok (assign s x e) ]
   | AssignToRef (x, y) ->
       let* x' = dummy_of x in
       let v =
@@ -77,18 +72,23 @@ let exec_cmd ~alloc_rule s =
         | None -> Aexp.Num 0
       in
       let* _ = heap_has x' in
-      Ok (store s x' (Val v))
-  | Alloc x -> alloc_rule s x
+      [ Ok (store s x' (Val v)) ]
+  | Alloc x -> [ alloc_rule s x ]
   | Free x ->
       let* x' = dummy_of x in
       (* TODO null *)
       let* _ = heap_has x' in
-      Ok (store s x' Dealloc)
-  | Error -> Err s
+      [ Ok (store s x' Dealloc) ]
+  | Error -> [ Err s ]
 
-let rec exec ({ bind = ( let* ); on_step; alloc_rule } as cfg) s p =
+let rec exec ({ bind; on_step; alloc_rule } as cfg) s p :
+    Executor_state.t status list =
+  let ( let* ) (ss : Executor_state.t status list) f =
+    List.concat_map ss ~f:(fun s -> bind s f)
+  in
+
   let open Prog in
-  if Bexp.(equal s.path_cond (Const false)) then Unreachable
+  if Path_cond.is_false s.path_cond then []
   else
     let* s =
       match p with
@@ -99,6 +99,6 @@ let rec exec ({ bind = ( let* ); on_step; alloc_rule } as cfg) s p =
           exec cfg s p2
       | _ -> failwith "not implemented"
     in
-    Ok (simplify s)
+    [ Ok (simplify s) ]
 
 (* TODO check that simplification applies substitution *)

@@ -4,13 +4,14 @@ open Executor
 let bind x f =
   match x with
   | Ok s -> f s
-  | Err s -> (
-      match f s with Ok z -> Err z | (Err _ | Stuck _ | Unreachable) as z -> z)
-  | Stuck _ | Unreachable -> x
+  | Err s ->
+      List.map (f s) ~f:(function Ok z -> Err z | (Err _ | Stuck _) as z -> z)
+  | Stuck _ -> [ x ]
 
 let alloc_rule s x =
   let open Executor_state in
-  (* always try to reuse existing deallocated locations (Alloc2 rule) *)
+  (* always try to reuse existing deallocated locations (Alloc2 rule)
+     TODO other strategies? *)
   let x' =
     Map.to_alist s.heap
     |> List.find_map ~f:(function x', Dealloc -> Some x' | _ -> None)

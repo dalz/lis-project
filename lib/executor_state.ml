@@ -9,7 +9,7 @@ type heapval =
 type t = {
   dummies : (Ide.t, Dummy.t, Ide.comparator_witness) Map.t;
   heap : (Dummy.t, heapval, Dummy.comparator_witness) Map.t;
-  path_cond : Bexp.t;
+  path_cond : Path_cond.t;
 }
 
 let dummify_var map x f =
@@ -108,18 +108,21 @@ let build_heap chunks =
              | `Duplicate -> failwith "TODO simplification should have noticed?"
              ))
 
+let add_bexp_to_path_cond { dummies; heap; path_cond } b =
+  let dummies, b = dummify_bexp dummies b in
+  let Norm_bexp.{ always; alts } = Norm_bexp.of_bexp b in
+  List.map alts ~f:(fun pc ->
+      { dummies; heap; path_cond = path_cond @ always @ pc })
+
 let list_of_norm_prop (_, Norm_prop.Disj ds) =
   let dummies, ds = dummify_ds ds in
-  let build_state (chunks, bool_preds) =
-    {
-      dummies;
-      heap = build_heap chunks;
-      path_cond =
-        (let open Bexp in
-         List.fold ~init:(Const true) ~f:(fun a b -> Bop (And, a, b)) bool_preds);
-    }
+  let aux (chunks, bool_preds) : t list =
+    List.reduce bool_preds ~f:(fun a b -> Bexp.Bop (And, a, b))
+    |> Option.value ~default:(Bexp.Const true)
+    |> add_bexp_to_path_cond
+         { dummies; heap = build_heap chunks; path_cond = [] }
   in
-  extract_chunks ds |> List.map ~f:build_state
+  extract_chunks ds |> List.concat_map ~f:aux
 
 let subst { dummies; heap; path_cond } x y =
   let f z = if Dummy.equal x z then y else z in
@@ -129,7 +132,7 @@ let subst { dummies; heap; path_cond } x y =
       Map.map heap ~f:(function
         | Val a -> Val (Aexp.subst a x y)
         | (Undefined | Dealloc) as z -> z);
-    path_cond = Bexp.subst path_cond x y;
+    path_cond = Path_cond.subst path_cond x y;
   }
 
 let pretty { dummies; heap; path_cond } =
@@ -167,5 +170,5 @@ let pretty { dummies; heap; path_cond } =
                utf8string (Ide.to_string x ^ " = " ^ Dummy.to_string x'))
              (Map.to_alist dummies))
         ^^ hardline ^^ utf8string "∧ ")
-  ^^ Bexp.pretty path_cond ^^ hardline
+  ^^ Path_cond.pretty path_cond ^^ hardline
   ^^ !^"-------------------------"

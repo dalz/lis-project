@@ -66,7 +66,8 @@ let rec simplify_b (b : Bexp.t) : Bexp.t =
               | Num n2 ->
                   Const (n1 = n2) (* Use single '=' for structural equality *)
               | _ -> Cmp (Eq, eval1, eval2))
-          | _ -> Cmp (Eq, eval1, eval2)))
+          | _ -> Cmp (Eq, eval1, eval2))
+      | Ne -> simplify_b (Not (Cmp (Eq, eval1, eval2))))
 
 let simplify_atom (at : Atom.t) : Atom.t =
   match at with

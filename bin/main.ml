@@ -2,6 +2,8 @@ open Base
 open Stdio
 open Lis_project
 
+(* TODO add ≠ to parser *)
+
 let print d =
   PPrint.ToChannel.pretty 1. 60 Out_channel.stdout d;
   Out_channel.print_endline "\n"

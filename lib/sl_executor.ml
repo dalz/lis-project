@@ -2,7 +2,7 @@ open Base
 open Executor
 
 let bind x f =
-  match x with Ok s -> f s | Err s -> Stuck s | Stuck _ | Unreachable -> x
+  match x with Ok s -> f s | Err s -> [ Stuck s ] | Stuck _ -> [ x ]
 
 let alloc_rule s x =
   let x' = Dummy.fresh_of_ide x in
