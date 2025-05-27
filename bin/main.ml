@@ -36,14 +36,14 @@ let () =
            "\n=========================\nExecution from state:\n";
          print (Executor_state.pretty s);
          match Sl_executor.exec ~on_step:print_state s prog with
-         | Ok s -> print_state s
-         | Err s ->
+         | [Ok s] -> print_state s
+         | [Err s] ->
              Out_channel.print_endline "[error]";
              print_state s
-         | Stuck s ->
+         | [Stuck s] ->
              Out_channel.print_endline "[stuck]";
              print_state s
-         | Unreachable -> Out_channel.print_endline "Unreachable")
+         | _ -> failwith "Duh???? idk what to do!?!?!?!!?");;
 
 (* let () = Out_channel.print_endline (Aexp.show (Aexp.simpl (Num 1))) *)
 
