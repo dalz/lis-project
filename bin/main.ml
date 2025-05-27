@@ -3,6 +3,15 @@ open Stdio
 open Lis_project
 
 (* TODO add ≠ to parser *)
+let usage_msg = "lis_project [-isl] filename";;
+let input_file = ref "";;
+let isl = ref false;;
+let anon_fun filename =
+        input_file := filename;;
+let speclist =
+        [("-isl", Stdlib.Arg.Set isl, "Uses isl");
+         ("-sl", Stdlib.Arg.Clear isl, "Uses sl")
+        ];;
 
 let print d =
   PPrint.ToChannel.pretty 1. 60 Out_channel.stdout d;
@@ -12,12 +21,18 @@ let print_state s = print (Executor_state.pretty s)
 
 
 let () =
+<<<<<<< Updated upstream
   let args = Sys.get_argv () in
   let fname = args.(1) in
 
   let current_exec = if String.equal (Stdlib.Filename.extension fname) ".isl" then Isl_executor.exec else 
     if String.equal (Stdlib.Filename.extension fname) ".sl" then Sl_executor.exec else
     failwith "Extension of input file should be .isl or .sl" in
+=======
+  Stdlib.Arg.parse speclist anon_fun usage_msg;
+  let fname = !input_file in
+  let exec = if !isl then Isl_executor.exec else Sl_executor.exec in
+>>>>>>> Stashed changes
   let pre, prog =
     In_channel.with_file fname ~f:(fun ch ->
         let lexbuf = Lexing.from_channel ch in
@@ -41,7 +56,11 @@ let () =
          Out_channel.print_endline
            "\n=========================\nExecution from state:\n";
          print (Executor_state.pretty s);
+<<<<<<< Updated upstream
          match current_exec ~on_step:print_state s prog with
+=======
+         match exec ~on_step:print_state s prog with
+>>>>>>> Stashed changes
          | [Ok s] -> print_state s
          | [Err s] ->
              Out_channel.print_endline "[error]";
