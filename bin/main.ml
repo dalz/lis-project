@@ -7,14 +7,16 @@ let usage_msg = "lis_project [-isl] filename";;
 let input_file = ref "";;
 let force_isl = ref false;;
 let force_sl = ref false;;
+let step_exec = ref false
 
 let anon_fun filename =
         input_file := filename;;
 let speclist =
-        [("-isl", Stdlib.Arg.Set force_isl, "Uses isl");
-         ("-sl", Stdlib.Arg.Set force_sl, "Uses sl")
+        [("--isl", Stdlib.Arg.Set force_isl, "Uses isl");
+         ("--sl", Stdlib.Arg.Set force_sl, "Uses sl");
+         ("--step-exec", Stdlib.Arg.Set step_exec, "Execute the derivation step y step")
         ];;
-let step_exec = ref false
+
 
 let print d =
   PPrint.ToChannel.pretty 1. 60 Out_channel.stdout d;
@@ -22,7 +24,7 @@ let print d =
 
 let print_state s = print (Executor_state.pretty s)
 
-let step_by_step s = 
+let step_state s = 
   print (Executor_state.pretty s)
   if step_exec then (
     let quit_loop = ref false in
@@ -66,7 +68,7 @@ let () =
          Out_channel.print_endline
            "\n=========================\nExecution from state:\n";
          print (Executor_state.pretty s);
-         match exec ~on_step:print_state s prog with
+         match exec ~on_step:step_state s prog with
          | [Ok s] -> print_state s
          | [Err s] ->
              Out_channel.print_endline "[error]";
