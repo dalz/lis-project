@@ -23,6 +23,7 @@ let print_state s = print (Executor_state.pretty s)
 
 
 let () =
+  Stdlib.Arg.parse speclist anon_fun usage_msg;
   let fname = !input_file in
   let exec = if !force_isl then Isl_executor.exec else 
           if !force_sl then Sl_executor.exec else
