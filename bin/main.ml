@@ -10,8 +10,14 @@ let print d =
 
 let print_state s = print (Executor_state.pretty s)
 
+
 let () =
-  let fname = (Sys.get_argv ()).(1) in
+  let args = Sys.get_argv () in
+  let fname = args.(1) in
+
+  let current_exec = if String.equal (Stdlib.Filename.extension fname) ".isl" then Isl_executor.exec else 
+    if String.equal (Stdlib.Filename.extension fname) ".sl" then Sl_executor.exec else
+    failwith "Extension of input file should be .isl or .sl" in
   let pre, prog =
     In_channel.with_file fname ~f:(fun ch ->
         let lexbuf = Lexing.from_channel ch in
@@ -35,7 +41,7 @@ let () =
          Out_channel.print_endline
            "\n=========================\nExecution from state:\n";
          print (Executor_state.pretty s);
-         match Sl_executor.exec ~on_step:print_state s prog with
+         match current_exec ~on_step:print_state s prog with
          | [Ok s] -> print_state s
          | [Err s] ->
              Out_channel.print_endline "[error]";
