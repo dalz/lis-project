@@ -12,11 +12,10 @@ let step_exec = ref false
 let anon_fun filename =
         input_file := filename;;
 let speclist =
-        [("--isl", Stdlib.Arg.Set force_isl, "Uses isl");
-         ("--sl", Stdlib.Arg.Set force_sl, "Uses sl");
-         ("--step-exec", Stdlib.Arg.Set step_exec, "Execute the derivation step y step")
+        [("-isl", Stdlib.Arg.Set force_isl, "Uses isl");
+         ("-sl", Stdlib.Arg.Set force_sl, "Uses sl");
+        ("--step-exec", Stdlib.Arg.Set step_exec, "Execute the derivation step y step")
         ];;
-
 
 let print d =
   PPrint.ToChannel.pretty 1. 60 Out_channel.stdout d;
@@ -24,14 +23,14 @@ let print d =
 
 let print_state s = print (Executor_state.pretty s)
 
-let step_state s = 
-  print (Executor_state.pretty s)
-  if step_exec then (
+let step_by_step s = 
+        print (Executor_state.pretty s);
+  if !step_exec then (
     let quit_loop = ref false in
     while not !quit_loop do
-      let str = read_line () in
-        if str.[0] = 'n' then quit_loop := true
-        if str.[0] = 'c' then quit_loop := true; step_exec := false
+      let str = Stdlib.read_line () in
+        if Char.equal str.[0] 'n' then quit_loop := true else
+        if Char.equal str.[0] 'c' then (quit_loop := true; step_exec := false)
         else Out_channel.print_endline "Invalid option!\n";
     done
   )
@@ -68,7 +67,7 @@ let () =
          Out_channel.print_endline
            "\n=========================\nExecution from state:\n";
          print (Executor_state.pretty s);
-         match exec ~on_step:step_state s prog with
+         match exec ~on_step:step_by_step s prog with
          | [Ok s] -> print_state s
          | [Err s] ->
              Out_channel.print_endline "[error]";
