@@ -14,6 +14,7 @@ let speclist =
         [("-isl", Stdlib.Arg.Set force_isl, "Uses isl");
          ("-sl", Stdlib.Arg.Set force_sl, "Uses sl")
         ];;
+let step_exec = ref false
 
 let print d =
   PPrint.ToChannel.pretty 1. 60 Out_channel.stdout d;
@@ -21,6 +22,17 @@ let print d =
 
 let print_state s = print (Executor_state.pretty s)
 
+let step_by_step s = 
+  print (Executor_state.pretty s)
+  if step_exec then (
+    let quit_loop = ref false in
+    while not !quit_loop do
+      let str = read_line () in
+        if str.[0] = 'n' then quit_loop := true
+        if str.[0] = 'c' then quit_loop := true; step_exec := false
+        else Out_channel.print_endline "Invalid option!\n";
+    done
+  )
 
 let () =
   Stdlib.Arg.parse speclist anon_fun usage_msg;
