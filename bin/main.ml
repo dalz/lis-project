@@ -7,14 +7,16 @@ let usage_msg = "lis_project [-isl] filename";;
 let input_file = ref "";;
 let force_isl = ref false;;
 let force_sl = ref false;;
-let step_exec = ref false
+let step_exec = ref false;;
+let no_verbose = ref false;;
 
 let anon_fun filename =
         input_file := filename;;
 let speclist =
-        [("-isl", Stdlib.Arg.Set force_isl, "Uses isl");
-         ("-sl", Stdlib.Arg.Set force_sl, "Uses sl");
-        ("--step-exec", Stdlib.Arg.Set step_exec, "Execute the derivation step y step")
+        [("--isl", Stdlib.Arg.Set force_isl, "Uses isl");
+         ("--sl", Stdlib.Arg.Set force_sl, "Uses sl");
+         ("--step-exec", Stdlib.Arg.Set step_exec, "Execute the derivation step by step");
+         ("--no-verbose", Stdlib.Arg.Set no_verbose, "Skip the execution prints and shows the result")
         ];;
 
 let print d =
@@ -24,16 +26,19 @@ let print d =
 let print_state s = print (Executor_state.pretty s)
 
 let step_by_step s = 
-        print (Executor_state.pretty s);
-  if !step_exec then (
-    let quit_loop = ref false in
-    while not !quit_loop do
-      let str = Stdlib.read_line () in
-        if Char.equal str.[0] 'n' then quit_loop := true else
-        if Char.equal str.[0] 'c' then (quit_loop := true; step_exec := false)
-        else Out_channel.print_endline "Invalid option!\n";
-    done
+  if not !no_verbose then (
+    print (Executor_state.pretty s);
+    if !step_exec then (
+      let quit_loop = ref false in
+      while not !quit_loop do
+        let str = Stdlib.read_line () in
+          if Char.equal str.[0] 'n' then quit_loop := true else
+          if Char.equal str.[0] 'c' then (quit_loop := true; step_exec := false)
+          else Out_channel.print_endline "Invalid option!\n";
+      done
+    )
   )
+  
 
 let () =
   Stdlib.Arg.parse speclist anon_fun usage_msg;
