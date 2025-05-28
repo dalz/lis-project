@@ -53,6 +53,7 @@ This file defines the common parser for SL+ and ISL+.
 
 (** String Token *)
 %token <string> ID
+%token <string * int> DUMMY_ID
 
 %token LBRACE
 %token RBRACE
@@ -76,6 +77,7 @@ This file defines the common parser for SL+ and ISL+.
 %type <Prop.t> prop
 %type <Prog.t> prog
 %type <Prop.t * Prog.t> input
+%type <Dummy.t> id
 (** Declaring the starting point *)
 %start input
 
@@ -133,21 +135,23 @@ prop :
     | p1 = prop; AND; p2 = prop {And (p1, p2)}
     | p1 = prop; OR; p2 = prop {Or (p1, p2)}
     | p1 = prop; SEP ; p2 = prop {Sep (p1, p2)}
-    | EXIST; s = ID; DOT p = prop {Exists (Dummy.raw s 0, p)}
+    | EXIST; s = id; DOT p = prop {Exists (s, p)}
     ;
- 
+
+(* Id Rule *)
+id :
+    | s = ID {Dummy.raw s 0}
+    | s = DUMMY_ID {
+        let id = fst s in
+        let num = snd s in
+        Dummy.raw id num
+    }
 
 (* Atom Rule *)
 atom :
     | b = bexp %prec PREFER_A { Bool b }
-    | s = ID; REF; a = aexp { 
-        let t = Dummy.raw s 0 in 
-        PointsTo (t, a)
-     }
-    | s = ID; NREF {
-        let t = Dummy.raw s 0 in
-        PointsToNothing t
-    }
+    | s = id; REF; a = aexp { PointsTo (s, a)}
+    | s = id; NREF { PointsToNothing s}
     | EMP { Emp }
     ;
 
@@ -161,10 +165,7 @@ aexp :
     | a1 = aexp; DIV; a2 = aexp { Bop(Div, a1, a2) }
     | a1 = aexp; MOD; a2 = aexp { Bop(Mod, a1, a2) }
     | MINUS; a = aexp { Uop(Neg, a) }
-    | s = ID { 
-        let t = Dummy.raw s 0 in
-        Var t
-     }
+    | s = id { Var s}
     ;
 
 (* Boolean Rule *)
