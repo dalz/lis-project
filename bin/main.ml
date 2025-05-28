@@ -3,7 +3,7 @@ open Stdio
 open Lis_project
 
 (* TODO add ≠ to parser *)
-let usage_msg = "lis_project [-isl] filename";;
+let usage_msg = "lis_project [OPTIONS] [filename]";;
 let input_file = ref "";;
 let force_isl = ref false;;
 let force_sl = ref false;;
@@ -38,22 +38,37 @@ let step_by_step s =
       done
     )
   )
-  
+
+(* Reads lines from stdin until eof or target successive empty lines *)
+let rec get_lines acc count target = 
+        try match Stdlib.read_line(), count with
+            | "", n -> if Int.equal n (target-1) then acc 
+                else get_lines (acc^"\n") (n+1) target
+            | x,_ -> get_lines (acc^x^"\n") 0 target
+        with End_of_file -> acc;;
+
 
 let () =
   Stdlib.Arg.parse speclist anon_fun usage_msg;
   let fname = !input_file in
   let exec = if !force_isl then Isl_executor.exec else 
-          if !force_sl then Sl_executor.exec else
-                if String.equal (Stdlib.Filename.extension fname) ".isl" then Isl_executor.exec else 
-                    if String.equal (Stdlib.Filename.extension fname) ".sl" then Sl_executor.exec else
-                            failwith "Extension of input file should be .isl or .sl" in
+    if !force_sl then Sl_executor.exec else
+      if String.equal (Stdlib.Filename.extension fname) ".isl" then Isl_executor.exec else 
+        if String.equal (Stdlib.Filename.extension fname) ".sl" then Sl_executor.exec else
+          failwith "Extension of input file should be .isl or .sl" in
 
-  let pre, prog =
+  let pre, prog =(
+    (* If fname is empty read program from stdin *)
+    if String.equal fname "" then
+        let pr = get_lines "" 0 2 in
+        pr |> Out_channel.print_endline;
+        let lexbuf = Lexing.from_string pr in
+        Parser.input Lexer.read lexbuf
+    else
     In_channel.with_file fname ~f:(fun ch ->
         let lexbuf = Lexing.from_channel ch in
         Parser.input Lexer.read lexbuf)
-  in
+  ) in
   Prop.show pre |> Out_channel.print_endline;
   Prog.show prog |> Out_channel.print_endline;
   let prog_vars =
