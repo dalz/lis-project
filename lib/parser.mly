@@ -58,13 +58,13 @@ This file defines the common parser for SL+ and ISL+.
 %token RBRACE
 
 (** Precedence and associativity *)
-%left PLUS MINUS
-%left MULT DIV MOD
 %left OR AND SEP
 %left SEMICOLON 
 %right ASSIGN  
 %nonassoc NOT 
 %nonassoc DOT
+%left PLUS MINUS
+%left MULT DIV MOD
 
 (* Dummy tokens *)
 %left PREFER_A
@@ -75,26 +75,14 @@ This file defines the common parser for SL+ and ISL+.
 %type <Atom.t> atom
 %type <Prop.t> prop
 %type <Prog.t> prog
-%type <Prop.t> eprop
-%type <Prog.t> eprog
 %type <Prop.t * Prog.t> input
 (** Declaring the starting point *)
-%start input eprop eprog
+%start input
 
 %% (** ends the declaration section *)
 
 input :
     | LBRACE; pre = prop; RBRACE; prog = prog; EOF { (pre, prog) }
-    ;
-
-(** Grammar rules *)
-
-eprog :
-    | p = prog; EOF { p }
-    ;
-
-eprop :
-    | p = prop; EOF { p }
     ;
 
 (* Program Rule *)
@@ -167,7 +155,7 @@ atom :
 aexp :
     | LPAREN; a=aexp; RPAREN {a}
     | i = INT  { Num i }
-    | a1 = aexp; PLUS; a2 = aexp { Bop(Sum, a1, a2) } 
+    | a1 = aexp;  PLUS; a2 = aexp { Bop(Sum, a1, a2) } 
     | a1 = aexp; MINUS; a2 = aexp { Bop(Sub, a1, a2) }
     | a1 = aexp; MULT; a2 = aexp { Bop(Mul, a1, a2) }
     | a1 = aexp; DIV; a2 = aexp { Bop(Div, a1, a2) }
@@ -181,7 +169,6 @@ aexp :
 
 (* Boolean Rule *)
 bexp :
-    | LPAREN; b=bexp; RPAREN {b}
     | b = BOOL { Const b }
     | a1 = aexp LT a2 = aexp { Cmp(Lt, a1, a2) }
     | a1 = aexp LE a2 = aexp { Cmp(Le, a1, a2) }
