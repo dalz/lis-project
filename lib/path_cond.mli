@@ -3,7 +3,8 @@ type atom = Const of bool | Cmp of Cmp.t * Aexp.t * Aexp.t
 
 type t = atom list [@@deriving show, equal]
 
-val subst : t -> Dummy.t -> Dummy.t -> t
+val subst : ?noloop:bool -> t -> Dummy.t -> Aexp.t -> t
 val is_false : t -> bool
 val simpl : t -> t
+val get_substs : t -> (Dummy.t * Aexp.t) list
 val pretty : t -> PPrint.document

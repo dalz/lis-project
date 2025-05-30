@@ -1,9 +1,6 @@
 open Base
 open Executor_state
 
-(* TODO *)
-let simplify s = s (* { s with path_cond = Simplify.simplify_b s.path_cond } *)
-
 type 'a status =
   | Ok of 'a
   | Err of Executor_state.t
@@ -16,6 +13,8 @@ type config = {
     Executor_state.t status list;
   on_step : Executor_state.t -> unit;
   alloc_rule : Executor_state.t -> Ide.t -> Executor_state.t status;
+  choice_rule :
+    Executor_state.t -> Prog.t -> Prog.t -> (Executor_state.t * Prog.t) list;
 }
 
 let assign s x e =
@@ -81,10 +80,9 @@ let exec_cmd ~alloc_rule s =
       [ Ok (store s x' Dealloc) ]
   | Error -> [ Err s ]
 
-let rec exec ({ bind; on_step; alloc_rule } as cfg) s p :
-    Executor_state.t status list =
+let rec exec cfg s p : Executor_state.t status list =
   let ( let* ) (ss : Executor_state.t status list) f =
-    List.concat_map ss ~f:(fun s -> bind s f)
+    List.concat_map ss ~f:(fun s -> cfg.bind s f)
   in
 
   let open Prog in
@@ -92,13 +90,14 @@ let rec exec ({ bind; on_step; alloc_rule } as cfg) s p :
   else
     let* s =
       match p with
-      | Cmd c -> exec_cmd ~alloc_rule s c
+      | Cmd c -> exec_cmd ~alloc_rule:cfg.alloc_rule s c
       | Seq (p1, p2) ->
           let* s = exec cfg s p1 in
-          on_step s;
+          cfg.on_step s;
           exec cfg s p2
+      | Choice (p1, p2) ->
+          cfg.choice_rule s p1 p2
+          |> List.concat_map ~f:(fun (s, p) -> exec cfg s p)
       | _ -> failwith "not implemented"
     in
-    [ Ok (simplify s) ]
-
-(* TODO check that simplification applies substitution *)
+    [ Ok (Executor_state.simpl s) ]

@@ -4,7 +4,7 @@ type t [@@deriving show, equal]
 
 val to_string : t -> string
 val raw : string -> int -> t
-val raw_of_ide : Ide.t -> t
+val raw_of_ide : ?force:bool -> Ide.t -> t
 val fresh_of_ide : Ide.t -> t
 val fresh_of_t : t -> t
 val is_ide : t -> bool

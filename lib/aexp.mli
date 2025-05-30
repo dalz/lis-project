@@ -5,6 +5,6 @@ type t = Num of int | Var of Dummy.t | Bop of bop * t * t | Uop of uop * t
 [@@deriving show, equal]
 
 val fv : t -> Dummy.t list
-val subst : t -> Dummy.t -> Dummy.t -> t
+val subst : t -> Dummy.t -> t -> t
 val simpl : t -> t
 val pretty : t -> PPrint.document

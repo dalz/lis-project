@@ -10,14 +10,17 @@ let print d =
 
 let print_state s = print (Executor_state.pretty s)
 
-
 let () =
   let args = Sys.get_argv () in
   let fname = args.(1) in
 
-  let current_exec = if String.equal (Stdlib.Filename.extension fname) ".isl" then Isl_executor.exec else 
-    if String.equal (Stdlib.Filename.extension fname) ".sl" then Sl_executor.exec else
-    failwith "Extension of input file should be .isl or .sl" in
+  let current_exec =
+    if String.equal (Stdlib.Filename.extension fname) ".isl" then
+      Isl_executor.exec
+    else if String.equal (Stdlib.Filename.extension fname) ".sl" then
+      Sl_executor.exec
+    else failwith "Extension of input file should be .isl or .sl"
+  in
   let pre, prog =
     In_channel.with_file fname ~f:(fun ch ->
         let lexbuf = Lexing.from_channel ch in
@@ -37,19 +40,19 @@ let () =
   Out_channel.print_endline "Simplified precondition:\n";
   print (Norm_prop.pretty pre);
   Executor_state.list_of_norm_prop pre
-  |> List.iter ~f:(fun s ->
+  |> List.concat_map ~f:(fun s ->
          Out_channel.print_endline
            "\n=========================\nExecution from state:\n";
          print (Executor_state.pretty s);
-         match current_exec ~on_step:print_state s prog with
-         | [Ok s] -> print_state s
-         | [Err s] ->
-             Out_channel.print_endline "[error]";
-             print_state s
-         | [Stuck s] ->
-             Out_channel.print_endline "[stuck]";
-             print_state s
-         | _ -> failwith "Duh???? idk what to do!?!?!?!!?");;
+         current_exec ~on_step:print_state s prog)
+  |> List.iter ~f:(function
+       | Executor.Ok s -> print (Prop.pretty s)
+       | Err s ->
+           Out_channel.print_endline "[error]";
+           print_state s
+       | Stuck s ->
+           Out_channel.print_endline "[stuck]";
+           print_state s)
 
 (* let () = Out_channel.print_endline (Aexp.show (Aexp.simpl (Num 1))) *)
 

@@ -24,4 +24,12 @@ let alloc_rule s x =
       dummies = Map.set s.dummies ~key:x ~data:x';
     }
 
-let exec ~on_step = Executor.exec { bind; on_step; alloc_rule }
+(* TODO interactive mode? *)
+let choice_rule s p1 _p2 = [ (s, p1) ]
+
+let exec ~on_step s p =
+  Executor.exec { bind; on_step; alloc_rule; choice_rule } s p
+  |> List.map ~f:(function
+       | Ok s -> Ok (Executor_state.to_prop s)
+       | Err s -> Err s
+       | Stuck s -> Stuck s)

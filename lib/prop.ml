@@ -27,7 +27,8 @@ let rec subst (p : t) id id1 =
   | Atom (PointsTo (iden, a)) ->
       Atom
         (PointsTo
-           ((if Dummy.equal iden id then id1 else iden), Aexp.subst a id id1))
+           ( (if Dummy.equal iden id then id1 else iden),
+             Aexp.subst a id (Var id1) ))
   | Atom (PointsToNothing iden) ->
       Atom (PointsToNothing (if Dummy.equal iden id then id1 else iden))
   | Sep (p1, p2) -> Sep (subst p1 id id1, subst p2 id id1)

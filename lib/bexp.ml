@@ -23,7 +23,8 @@ let fv e =
 let rec subst (b : t) id id1 =
   match b with
   | Const _ -> b
-  | Cmp (op, ae1, ae2) -> Cmp (op, Aexp.subst ae1 id id1, Aexp.subst ae2 id id1)
+  | Cmp (op, ae1, ae2) ->
+      Cmp (op, Aexp.subst ae1 id (Var id1), Aexp.subst ae2 id (Var id1))
   | Bop (op, b1, b2) -> Bop (op, subst b1 id id1, subst b2 id id1)
   | Not b1 -> Not (subst b1 id id1)
 

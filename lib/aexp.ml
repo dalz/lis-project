@@ -17,12 +17,12 @@ let fv e =
   in
   aux e []
 
-let rec subst (a : t) id id1 =
+let rec subst (a : t) x b =
   match a with
   | Num _ -> a
-  | Var iden -> Var (if Dummy.equal iden id then id1 else iden)
-  | Bop (op, ae1, ae2) -> Bop (op, subst ae1 id id1, subst ae2 id id1)
-  | Uop (op, ae1) -> Uop (op, subst ae1 id id1)
+  | Var x' -> if Dummy.equal x' x then b else Var x'
+  | Bop (op, ae1, ae2) -> Bop (op, subst ae1 x b, subst ae2 x b)
+  | Uop (op, ae1) -> Uop (op, subst ae1 x b)
 
 let compute op n m =
   (match op with

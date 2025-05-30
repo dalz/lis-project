@@ -39,8 +39,8 @@ module T = struct
         | _ -> n);
       (x, n)
 
-  let raw_of_ide x =
-    Ide.assert_raw x;
+  let raw_of_ide ?(force = false) x =
+    if not force then Ide.assert_raw x;
     (x, 0)
 
   let fresh_of_ide x =

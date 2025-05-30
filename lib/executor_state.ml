@@ -130,10 +130,57 @@ let subst { dummies; heap; path_cond } x y =
     dummies = Map.map dummies ~f;
     heap =
       Map.map heap ~f:(function
-        | Val a -> Val (Aexp.subst a x y)
+        | Val a -> Val (Aexp.subst a x (Var y))
         | (Undefined | Dealloc) as z -> z);
-    path_cond = Path_cond.subst path_cond x y;
+    path_cond = Path_cond.subst path_cond x (Var y);
   }
+
+let simpl s =
+  let aux ({ path_cond; _ } as s) =
+    let path_cond = Path_cond.simpl path_cond in
+    Path_cond.get_substs path_cond
+    |> List.fold ~init:{ s with path_cond }
+         ~f:(fun ({ path_cond; _ } as s) (x, a) ->
+           match a with
+           | Aexp.Var y -> subst s x y
+           | _ ->
+               { s with path_cond = Path_cond.subst ~noloop:true path_cond x a })
+  in
+  let rec fix f ({ path_cond = pc; _ } as s) =
+    let ({ path_cond = pc'; _ } as s') = f s in
+    if Path_cond.equal pc pc' then s' else fix f s'
+  in
+  fix aux s
+
+let to_prop { dummies; heap; path_cond } =
+  let open Prop in
+  let dummies =
+    Map.to_alist dummies
+    |> List.map ~f:(fun (x, x') ->
+           Atom (Bool (Cmp (Eq, Var (Dummy.raw_of_ide ~force:true x), Var x'))))
+    |> List.reduce ~f:(fun prop eq -> And (prop, eq))
+    |> Option.value ~default:(Atom (Bool (Const true)))
+  in
+  let heap =
+    Map.to_alist heap
+    |> List.map ~f:(fun (x', v) ->
+           Atom
+             (match v with
+             | Val a -> PointsTo (x', a)
+             | Dealloc -> PointsToNothing x'
+             | Undefined -> failwith "TODO"))
+    |> List.reduce ~f:(fun acc pto -> Sep (acc, pto))
+    |> Option.value ~default:(Atom Emp)
+  in
+  let path_cond =
+    List.fold path_cond ~init:(Atom (Bool (Const true))) ~f:(fun acc a ->
+        And
+          ( acc,
+            match a with
+            | Path_cond.Const b -> Atom (Bool (Const b))
+            | Cmp (op, a, b) -> Atom (Bool (Cmp (op, a, b))) ))
+  in
+  Simplify.simplify_prop (And (dummies, And (heap, path_cond)))
 
 let pretty { dummies; heap; path_cond } =
   (* ^^ (if List.is_empty exvars then empty *)

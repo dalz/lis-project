@@ -10,6 +10,8 @@ type config = {
     Executor_state.t status list;
   on_step : Executor_state.t -> unit;
   alloc_rule : Executor_state.t -> Ide.t -> Executor_state.t status;
+  choice_rule :
+    Executor_state.t -> Prog.t -> Prog.t -> (Executor_state.t * Prog.t) list;
 }
 
 val exec : config -> Executor_state.t -> Prog.t -> Executor_state.t status list
