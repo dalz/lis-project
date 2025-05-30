@@ -62,6 +62,7 @@ let dummify_ds ds =
         let map, e = dummify_aexp map e in
         dummify_var map x (fun x' -> PointsTo (x', e))
     | PointsToNothing x -> dummify_var map x (fun x' -> PointsToNothing x')
+    | PointsToUndefined x -> dummify_var map x (fun x' -> PointsToUndefined x')
     | Emp -> (map, Emp)
   in
   let open Norm_prop in
@@ -82,7 +83,9 @@ let extract_chunks =
            ~f:
              Atom.(
                function
-               | (PointsTo _ | PointsToNothing _ | Emp) as a -> Either.First a
+               | (PointsTo _ | PointsToNothing _ | PointsToUndefined _ | Emp) as
+                 a ->
+                   Either.First a
                | Bool e -> Either.Second e))
 
 let build_heap chunks =
@@ -92,21 +95,26 @@ let build_heap chunks =
         function
         | PointsTo (x, e) -> Some (`PointsTo (x, e))
         | PointsToNothing x -> Some (`PointsToNothing x)
+        | PointsToUndefined x -> Some (`PointsToUndefined x)
         | Emp -> None
         | Bool _ -> failwith "unreachable")
   |> List.fold
        ~init:(Map.empty (module Dummy))
-       ~f:(fun map -> function
-         | `PointsTo (x, e) -> (
-             match Map.add map ~key:x ~data:(Val e) with
-             | `Ok map -> map
-             | `Duplicate -> failwith "TODO simplification should have noticed?"
-             )
-         | `PointsToNothing x -> (
-             match Map.add map ~key:x ~data:Dealloc with
-             | `Ok map -> map
-             | `Duplicate -> failwith "TODO simplification should have noticed?"
-             ))
+       ~f:(fun
+           map
+           ((`PointsTo (x, _) | `PointsToNothing x | `PointsToUndefined x) as
+            pto)
+         ->
+         match
+           Map.add map ~key:x
+             ~data:
+               (match pto with
+               | `PointsTo (_, e) -> Val e
+               | `PointsToNothing _ -> Dealloc
+               | `PointsToUndefined _ -> Undefined)
+         with
+         | `Ok map -> map
+         | `Duplicate -> failwith "TODO simplification should have noticed?")
 
 let add_bexp_to_path_cond { dummies; heap; path_cond } b =
   let dummies, b = dummify_bexp dummies b in

@@ -17,21 +17,13 @@ let rec fv = function
 
 let rec subst (p : t) id id1 =
   match p with
-  | Atom (Bool (Const true)) | Atom (Bool (Const false)) | Atom Emp -> p
   | And (p1, p2) -> And (subst p1 id id1, subst p2 id id1)
   | Or (p1, p2) -> Or (subst p1 id id1, subst p2 id id1)
   (* exists: substitute only if id is not shadowed by iden *)
   | Exists (iden, p1) ->
       Exists (iden, if Dummy.equal iden id then p1 else subst p1 id id1)
-  | Atom (Bool b1) -> Atom (Bool (Bexp.subst b1 id id1))
-  | Atom (PointsTo (iden, a)) ->
-      Atom
-        (PointsTo
-           ( (if Dummy.equal iden id then id1 else iden),
-             Aexp.subst a id (Var id1) ))
-  | Atom (PointsToNothing iden) ->
-      Atom (PointsToNothing (if Dummy.equal iden id then id1 else iden))
   | Sep (p1, p2) -> Sep (subst p1 id id1, subst p2 id id1)
+  | Atom a -> Atom (Atom.subst a id id1)
 
 let pretty p =
   let rec aux t = function

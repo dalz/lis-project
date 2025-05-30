@@ -71,10 +71,9 @@ let rec simplify_b (b : Bexp.t) : Bexp.t =
 
 let simplify_atom (at : Atom.t) : Atom.t =
   match at with
-  | Bool b -> Bool (simplify_b b)
-  | Emp -> Emp
-  | PointsToNothing t -> PointsToNothing t
   | PointsTo (t, a) -> PointsTo (t, Aexp.simpl a)
+  | Bool b -> Bool (simplify_b b)
+  | Emp | PointsToNothing _ | PointsToUndefined _ -> at
 
 (* TODO check that this works as expected *)
 (* !!! copy and pasted *)

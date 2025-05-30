@@ -78,15 +78,15 @@ let rec simpl_bounds =
            | bs, true -> simpl_bounds bs
            | bs, false -> simpl_bounds bs |> Result.map ~f:(List.cons b))
 
-let ribalt = function
-  | `Le -> `Ge
-  | `Lt -> `Gt
-  | `Ge -> `Le
-  | `Gt -> `Lt
-  | (`Eq | `Ne) as op -> op
-
 let update_bounds bmap cmp =
-  let pippify neg flip (op : Cmp.t) =
+  let ribalt = function
+    | `Le -> `Ge
+    | `Lt -> `Gt
+    | `Ge -> `Le
+    | `Gt -> `Lt
+    | (`Eq | `Ne) as op -> op
+  in
+  let negate_flip_op neg flip (op : Cmp.t) =
     let op =
       match (neg, op) with
       | false, Le -> `Le
@@ -103,8 +103,8 @@ let update_bounds bmap cmp =
 
   let aux bmap cmp flip =
     (match cmp with
-    | Cmp (op, Var x, b) -> Some (x, pippify false flip op, b)
-    | Cmp (op, Uop (Neg, Var x), b) -> Some (x, pippify true flip op, b)
+    | Cmp (op, Var x, b) -> Some (x, negate_flip_op false flip op, b)
+    | Cmp (op, Uop (Neg, Var x), b) -> Some (x, negate_flip_op true flip op, b)
     | _ -> None)
     |> Option.map ~f:(fun (x, op, b) ->
            Map.find bmap x |> Option.value ~default:[]
