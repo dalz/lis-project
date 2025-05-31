@@ -23,11 +23,17 @@ rule read =
     | ")" { RPAREN }
 
     (** Triples *)
-    | "{" { LBRACE }
-    | "}" { RBRACE }
+    | "{" as _s { 
+        (* Printf.printf "Lexer Found LBRACE: %c\n" _s; *)
+        LBRACE }
+    | "}" as _s{ 
+        (* Printf.printf "Lexer Found RBRACE: %c\n" _s; *)
+        RBRACE }
 
     (** Arithmetic tokens *)
-    | num { INT (int_of_string (Lexing.lexeme lexbuf)) }
+    | num as _s{ 
+        (* Printf.printf "Lexer Found INT: %s\n" _s; *)
+        INT (int_of_string (Lexing.lexeme lexbuf)) }
     | "+" { PLUS }
     | "-" { MINUS }
     | "**" | "×" { MULT }
@@ -47,8 +53,13 @@ rule read =
     
     (** Atom tokens *)
     | "emp" {EMP}
-    | "->" | "↦" {REF}
+    | "->" | "↦" as _s {
+        (* Printf.printf "Lexer Found REF: %s\n" _s; *)
+        REF}
     | "!->" | "!↦" | "↦̸" {NREF}
+    | "_" as _s{
+        (* Printf.printf "Lexer Found SOMETHING: %c\n" _s; *)
+        SOMETHING}
     
     (** Proposition tokens*)
     | "exists" | "∃" {EXIST}
@@ -61,16 +72,25 @@ rule read =
     (** Command tokens *)
     | "skip" { SKIP }
     | "?" { QUESTION }
-    | "[" { LBRACK }
-    | "]" { RBRACK }
-    | ":=" | "←" { ASSIGN }
+    | "[" as _s { 
+        (* Printf.printf "Lexer Found LBRACK: %c\n" _s; *)
+        LBRACK }
+    | "]" as _s{ 
+        (* Printf.printf "Lexer Found RBRACK: %c\n" _s; *)
+        RBRACK }
+    | ":=" | "←" as _s{ 
+        (* Printf.printf "Lexer Found ASSIGN: %s\n" _s; *)
+        ASSIGN }
     | "alloc" { ALLOC }
     | "free" { FREE }
     | "error" { ERROR }
     | "star" | "⋆" {STAR}
     (** string token *)
-    | ide { ID (Lexing.lexeme lexbuf) }
+    | ide as _s{ 
+        (* Printf.printf "Lexer Found ID: %s\n" _s; *)
+        ID (Lexing.lexeme lexbuf) }
     | dummy_ide as s {
+        (* Printf.printf "Lexer Found DUMMY_ID: %s\n" _s; *)
         let len = String.length s in
         let i = ref (len - 1) in
         while !i >= 0 && s.[!i] = '\'' do

@@ -1,5 +1,5 @@
 { x ↦ _ }
 
-[x] := free(x); 
+free(x); 
 
 # {emp}

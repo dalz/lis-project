@@ -32,6 +32,7 @@ This file defines the common parser for SL+ and ISL+.
 %token EMP
 %token REF
 %token NREF
+%token SOMETHING
 
 (** Proposition Tokens *)
 %token EXIST
@@ -60,7 +61,6 @@ This file defines the common parser for SL+ and ISL+.
 
 (** Precedence and associativity *)
 %left OR AND SEP
-%left SEMICOLON 
 %right ASSIGN  
 %nonassoc NOT 
 %nonassoc DOT
@@ -68,7 +68,8 @@ This file defines the common parser for SL+ and ISL+.
 %left MULT DIV MOD
 
 (* Dummy tokens *)
-%left PREFER_A
+%nonassoc PREFER_A
+%nonassoc RPAREN
 
 (** Declaring types *)
 %type <Aexp.t> aexp
@@ -84,17 +85,23 @@ This file defines the common parser for SL+ and ISL+.
 %% (** ends the declaration section *)
 
 input :
-    | LBRACE; pre = prop; RBRACE; prog = prog; EOF { (pre, prog) }
+    | LBRACE; pre = prop; RBRACE; prog = prog; EOF { 
+        (* Printf.printf "Parser parsed a correct input\n" ;*)
+        (pre, prog) }
     ;
 
 (* Program Rule *)
 
 prog :
     | LPAREN; p=prog; RPAREN {p}
-    | p1 = prog;  SEMICOLON; p2 = prog {Prog.Seq (p1, p2)}
+    | prog_seq {$1}
     | p1 = prog; PLUS; p2 = prog {Prog.Choice (p1, p2)}
     | STAR; LPAREN; p = prog; RPAREN {Prog.Star(p)}
-    | c = cmd {Prog.Cmd c}
+    ;
+
+prog_seq:
+    | c = cmd; SEMICOLON? { Prog.Cmd c }
+    | c = cmd; SEMICOLON; p = prog_seq { Prog.Seq (Prog.Cmd c, p) }
     ;
 
 (* Command Rule *)
@@ -111,6 +118,7 @@ cmd :
         Cmd.AssignFromRef (t1, t2)
     }
     | LBRACK; s1 = ID; RBRACK; ASSIGN; s2 = ID {
+        (* Printf.printf "Parser Found a AssignToRef\n" ;*)
         let t1 = Ide.raw_of_string s1 in
         let t2 = Ide.raw_of_string s2 in
         Cmd.AssignToRef (t1, t2)
@@ -150,7 +158,12 @@ id :
 (* Atom Rule *)
 atom :
     | b = bexp %prec PREFER_A { Bool b }
-    | s = id; REF; a = aexp { PointsTo (s, a)}
+    | s = id; REF; SOMETHING {
+        (* Printf.printf "Parser Found a PointToUndefined\n" ;*)
+        PointsToUndefined s}
+    | s = id; REF; a = aexp { 
+        (* Printf.printf "Parser Found a PointTo\n" ;*)
+        PointsTo (s, a)}
     | s = id; NREF { PointsToNothing s}
     | EMP { Emp }
     ;
@@ -170,6 +183,7 @@ aexp :
 
 (* Boolean Rule *)
 bexp :
+    | LPAREN; b=bexp; RPAREN {b}
     | b = BOOL { Const b }
     | a1 = aexp LT a2 = aexp { Cmp(Lt, a1, a2) }
     | a1 = aexp LE a2 = aexp { Cmp(Le, a1, a2) }
