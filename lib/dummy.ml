@@ -2,7 +2,7 @@ open Base
 
 module T = struct
   (* when int = 0, represents a program variable (Ide.t) *)
-  type t = Ide.t * int [@@deriving show, equal, compare, sexp_of]
+  type t = Ide.t * int [@@deriving show, equal, compare, sexp_of, compare]
 
   let index_table = Hashtbl.create (module Ide)
 

@@ -1,8 +1,8 @@
 open Base
 open PPrint
 
-type conj = Conj of Atom.t list [@@deriving show]
-type sepj = Sepj of conj list [@@deriving show]
+type conj = Conj of Atom.t list [@@deriving show, compare]
+type sepj = Sepj of conj list [@@deriving show, compare]
 type disj = Disj of sepj list [@@deriving show]
 type t = Dummy.t list * disj [@@deriving show]
 
@@ -93,6 +93,62 @@ let of_prop (p : Prop.t) ~prog_vars : t =
   in
   let xs, _, p = extract_exists [] prog_vars p in
   (xs, aux_or (normalize_iter p) (Disj []))
+
+let simpl_conj (Conj cs) =
+  let cs =
+    List.map cs ~f:Atom.simpl
+    |> List.fold_until ~init:[] ~finish:Fn.id
+         ~f:
+           Atom.(
+             fun cs -> function
+               | Bool (Const true) | Emp -> Continue cs
+               | Bool (Const false) as f -> Stop [ f ]
+               | a -> Continue (a :: cs))
+    |> List.stable_dedup ~compare:Atom.compare
+    |> List.rev
+  in
+  let locs =
+    List.fold cs
+      ~init:(Set.empty (module Dummy))
+      ~f:(fun locs -> function
+        | PointsTo (x, _) | PointsToUndefined x | PointsToNothing x ->
+            Set.add locs x
+        | Emp | Bool _ -> locs)
+  in
+  (Conj cs, locs)
+
+let simpl_sepj (Sepj ss) =
+  Sepj
+    (List.map ss ~f:simpl_conj
+    |> List.fold_until
+         ~init:([], Set.empty (module Dummy))
+         ~finish:(fun (ss, _) -> ss)
+         ~f:(fun (ss, locs) (Conj cs, locs') ->
+           if Set.are_disjoint locs locs' then
+             let locs = Set.union locs locs' in
+             match cs with
+             | [] (* true *) -> Continue (ss, locs)
+             | [ Bool (Const false) ] -> Stop [ Conj cs ]
+             | _ -> Continue (Conj cs :: ss, locs)
+           else
+             (* non-disjoint heaps *)
+             Stop [ Conj [ Bool (Const false) ] ])
+    |> List.stable_dedup ~compare:compare_conj
+    |> List.rev)
+
+let simpl (xs, Disj ds) =
+  ( xs,
+    Disj
+      (List.map ds ~f:simpl_sepj
+      |> List.fold_until ~init:[] ~finish:Fn.id ~f:(fun ds -> function
+           | Sepj [] (* true *) -> Stop [ Sepj [] ]
+           | Sepj [ Conj [ Bool (Const false) ] ] -> Continue ds
+           | Sepj ss -> Continue (Sepj ss :: ds))
+      |> List.stable_dedup ~compare:compare_sepj
+      |> List.rev) )
+
+let or_ (xs1, Disj ds1) (xs2, Disj ds2) =
+  (List.stable_dedup (xs1 @ xs2) ~compare:Dummy.compare, Disj (ds1 @ ds2))
 
 let aux_pretty op default f xs =
   if List.is_empty xs then utf8string default

@@ -32,11 +32,7 @@ let () =
     let ps, ds = Prog.fv prog in
     List.map ps ~f:Dummy.raw_of_ide @ ds
   in
-  let pre =
-    Simplify.simplify_prop pre
-    |> Norm_prop.of_prop ~prog_vars
-    |> Simplify.simplify_t
-  in
+  let pre = Norm_prop.of_prop ~prog_vars pre |> Norm_prop.simpl in
   Out_channel.print_endline "Simplified precondition:\n";
   print (Norm_prop.pretty pre);
   Executor_state.list_of_norm_prop pre
@@ -46,7 +42,7 @@ let () =
          print (Executor_state.pretty s);
          current_exec ~on_step:print_state s prog)
   |> List.iter ~f:(function
-       | Executor.Ok s -> print (Prop.pretty s)
+       | Executor.Ok s -> print (Norm_prop.pretty s)
        | Err s ->
            Out_channel.print_endline "[error]";
            print_state s

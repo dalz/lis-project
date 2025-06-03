@@ -1,6 +1,6 @@
 open Base
 
-type t [@@deriving show, equal]
+type t [@@deriving show, equal, compare]
 
 val to_string : t -> string
 val raw : string -> int -> t

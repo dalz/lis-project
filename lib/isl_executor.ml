@@ -19,9 +19,9 @@ let alloc_rule s x =
   in
   Ok
     {
+      s with
       heap = Map.set s.heap ~key:x' ~data:Undefined;
       dummies = Map.set s.dummies ~key:x ~data:x';
-      path_cond = Cmp (Ne, Var x', Num 0) :: s.path_cond;
     }
 
 (* TODO interactive mode? *)
@@ -30,6 +30,6 @@ let choice_rule s p1 _p2 = [ (s, p1) ]
 let exec ~on_step s p =
   Executor.exec { bind; on_step; alloc_rule; choice_rule } s p
   |> List.map ~f:(function
-       | Ok s -> Ok (Executor_state.to_prop s)
+       | Ok s -> Ok (Executor_state.to_norm_prop s)
        | Err s -> Err s
        | Stuck s -> Stuck s)

@@ -23,5 +23,5 @@ val dummify_bexp :
 
 val subst : t -> Dummy.t -> Dummy.t -> t
 val simpl : t -> t
-val to_prop : t -> Prop.t
+val to_norm_prop : t -> Norm_prop.t
 val pretty : t -> PPrint.document

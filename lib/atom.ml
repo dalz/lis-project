@@ -6,7 +6,7 @@ type t =
   | PointsTo of Dummy.t * Aexp.t
   | PointsToNothing of Dummy.t
   | PointsToUndefined of Dummy.t
-[@@deriving show]
+[@@deriving show, compare]
 
 let fv = function
   | PointsTo (x, e) -> x :: Aexp.fv e
@@ -22,6 +22,11 @@ let subst a x x' =
   | PointsToNothing y | PointsToUndefined y ->
       PointsToNothing (if Dummy.equal y x then x' else y)
   | Emp -> Emp
+
+let simpl = function
+  | Bool b -> Bool (Bexp.simpl b)
+  | PointsTo (x, a) -> PointsTo (x, Aexp.simpl a)
+  | (Emp | PointsToNothing _ | PointsToUndefined _) as a -> a
 
 let pretty = function
   | PointsTo (x, e) ->
