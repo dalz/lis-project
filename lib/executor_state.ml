@@ -160,7 +160,7 @@ let simpl s =
   in
   fix aux s
 
-let to_norm_prop { dummies; heap; path_cond } =
+let to_prop { dummies; heap; path_cond } =
   let open Prop in
   let dummies =
     Map.to_alist dummies
@@ -188,7 +188,7 @@ let to_norm_prop { dummies; heap; path_cond } =
             | Path_cond.Const b -> Atom (Bool (Const b))
             | Cmp (op, a, b) -> Atom (Bool (Cmp (op, a, b))) ))
   in
-  Norm_prop.of_prop ~prog_vars:[] (And (dummies, And (heap, path_cond)))
+  And (dummies, And (heap, path_cond))
 
 let pretty { dummies; heap; path_cond } =
   (* ^^ (if List.is_empty exvars then empty *)

@@ -25,6 +25,31 @@ let rec subst (p : t) id id1 =
   | Sep (p1, p2) -> Sep (subst p1 id id1, subst p2 id id1)
   | Atom a -> Atom (Atom.subst a id id1)
 
+(* very basic, just to remove some noise from the result of the SL executor *)
+let rec simpl = function
+  | Exists _ as p -> p
+  | Atom a -> Atom (Atom.simpl a)
+  | And (p, q) -> (
+      match (simpl p, simpl q) with
+      | p, Atom (Emp | Bool (Const true)) | Atom (Emp | Bool (Const true)), p ->
+          p
+      | _, Atom (Bool (Const false)) | Atom (Bool (Const false)), _ ->
+          Atom (Bool (Const false))
+      | p, q -> And (p, q))
+  | Sep (p, q) -> (
+      match (simpl p, simpl q) with
+      | p, Atom (Emp | Bool (Const true)) | Atom (Emp | Bool (Const true)), p ->
+          p
+      | _, Atom (Bool (Const false)) | Atom (Bool (Const false)), _ ->
+          Atom (Bool (Const false))
+      | p, q -> Sep (p, q))
+  | Or (p, q) -> (
+      match (simpl p, simpl q) with
+      | _, Atom (Emp | Bool (Const true)) | Atom (Emp | Bool (Const true)), _ ->
+          Atom (Bool (Const false))
+      | p, Atom (Bool (Const false)) | Atom (Bool (Const false)), p -> p
+      | p, q -> Or (p, q))
+
 let pretty p =
   let rec aux t = function
     | Atom a -> Atom.pretty a

@@ -42,7 +42,7 @@ let () =
          print (Executor_state.pretty s);
          current_exec ~on_step:print_state s prog)
   |> List.iter ~f:(function
-       | Executor.Ok s -> print (Norm_prop.pretty s)
+       | Executor.Ok s -> print (Prop.pretty s)
        | Err s ->
            Out_channel.print_endline "[error]";
            print_state s
