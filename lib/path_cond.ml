@@ -142,6 +142,8 @@ let get_substs =
         if List.mem (Aexp.fv a) x ~equal:Dummy.equal then None else Some (x, a)
     | _ -> None)
 
+let is_null p x = List.mem p (Cmp (Eq, Var x, Num 0)) ~equal:equal_atom
+
 let pretty p =
   separate_map
     (break 1 ^^ utf8string "∧" ^^ space)

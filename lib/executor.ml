@@ -59,25 +59,29 @@ let exec_cmd ~alloc_rule s =
       (* if y has no dummy variable, it has never been used before
          (in the program or precondition) so it is not allocated *)
       let* y' = dummy_of y in
-      (* TODO y' null *)
-      let* e = heap_val y' in
-      [ Ok (assign s x e) ]
+      if Path_cond.is_null s.path_cond y' then [ Err s ]
+      else
+        let* e = heap_val y' in
+        [ Ok (assign s x e) ]
   | AssignToRef (x, y) ->
       let* x' = dummy_of x in
-      let v =
-        match Map.find s.dummies y with
-        | Some y' -> Aexp.Var y'
-        (* uninitialized variables are 0 by default (TODO) *)
-        | None -> Aexp.Num 0
-      in
-      let* _ = heap_has x' in
-      [ Ok (store s x' (Val v)) ]
+      if Path_cond.is_null s.path_cond x' then [ Err s ]
+      else
+        let v =
+          match Map.find s.dummies y with
+          | Some y' -> Aexp.Var y'
+          (* uninitialized variables are 0 by default *)
+          | None -> Aexp.Num 0
+        in
+        let* _ = heap_has x' in
+        [ Ok (store s x' (Val v)) ]
   | Alloc x -> [ alloc_rule s x ]
   | Free x ->
       let* x' = dummy_of x in
-      (* TODO null *)
-      let* _ = heap_has x' in
-      [ Ok (store s x' Dealloc) ]
+      if Path_cond.is_null s.path_cond x' then [ Err s ]
+      else
+        let* _ = heap_has x' in
+        [ Ok (store s x' Dealloc) ]
   | Error -> [ Err s ]
 
 let rec exec cfg s p : Executor_state.t status list =

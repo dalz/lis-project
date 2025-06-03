@@ -9,9 +9,9 @@ let alloc_rule s x =
   Ok
     Executor_state.
       {
-        s with
         heap = Map.set s.heap ~key:x' ~data:Undefined;
         dummies = Map.set s.dummies ~key:x ~data:x';
+        path_cond = Cmp (Ne, Var x', Num 0) :: s.path_cond;
       }
 
 let choice_rule s p1 p2 = [ (s, p1); (s, p2) ]

@@ -19,9 +19,9 @@ let alloc_rule s x =
   in
   Ok
     {
-      s with
       heap = Map.set s.heap ~key:x' ~data:Undefined;
       dummies = Map.set s.dummies ~key:x ~data:x';
+      path_cond = Cmp (Ne, Var x', Num 0) :: s.path_cond;
     }
 
 (* TODO interactive mode? *)
