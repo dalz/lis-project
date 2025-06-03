@@ -1,5 +1,5 @@
-{x = x' * x' -> 0}
+{x = x' * x' -> _}
 
 x := alloc()
 
-#{x -> y * x' -> 0} non funziona _ e x'
+#{x -> y * x' -> _} non funziona _ e x'
