@@ -39,6 +39,6 @@ let pretty e =
         let ops = match op with And -> "&" | Or -> "|" in
         let p = pp_bop (aux prec e1) ops (aux prec e2) in
         if t > prec then parens p else p
-    | Not e -> !^"¬" ^^ aux Int.max_value e
+    | Not e -> !^"¬(" ^^ aux Int.max_value e ^^ !^")"
   in
   aux (-1) e
