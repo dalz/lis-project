@@ -1,5 +1,5 @@
 open Norm_prop
-
+ 
 (*Check z3 arithmetic rules for deeper simplification which is already implementation*)
 (*Evaluate if its better to use  Z3 or reeimplement it *)
 
