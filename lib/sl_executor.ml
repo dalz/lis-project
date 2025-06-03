@@ -16,29 +16,32 @@ let alloc_rule s x =
 
 let choice_rule s p1 p2 = [ (s, p1); (s, p2) ]
 
-let reduce_until ~default ~f = function
+let reduce_until_exn ~f = function
   | x :: y :: zs -> (
       match f x y with
       | Container.Continue_or_stop.Continue init ->
           List.fold_until ~init ~finish:Fn.id ~f zs
       | Stop res -> res)
   | [ x ] -> x
-  | [] -> default
+  | [] -> failwith "reduce_until_exn applied to empty list"
 
 let exec ~on_step s p =
-  Executor.exec { bind; on_step; alloc_rule; choice_rule } s p
-  |> List.map ~f:(function
-       | Ok s -> Ok (Executor_state.to_prop s)
-       | (Err _ | Stuck _) as s -> s)
-  |> reduce_until ~default:(Ok (Prop.Atom (Bool (Const true)))) ~f:(fun acc s ->
-         match (acc, s) with
-         | Ok p, Ok q -> Continue (Ok (Prop.Or (p, q)))
-         | _, (Err _ | Stuck _) -> Stop s
-         | (Err _ | Stuck _), _ -> failwith "unreachable")
-  |> ( function Ok p -> Ok (Prop.simpl p) | s -> s )
-  (* List.fold_until ~init:([], Norm_prop.Disj []) *)
-  (*    ~finish:(fun p -> Ok (Norm_prop.simpl p)) *)
-  (*    ~f:(fun acc -> function *)
-  (*      | Ok s -> Continue (Norm_prop.or_ acc (Executor_state.to_norm_prop s)) *)
-  (*      | (Err _ | Stuck _) as s -> Stop s) *)
-  |> List.return
+  match
+    Executor.exec { bind; on_step; alloc_rule; choice_rule } s p
+    |> List.map ~f:(function
+         | Ok s -> Ok (Executor_state.to_prop s)
+         | (Err _ | Stuck _) as s -> s)
+  with
+  | [] -> []
+  | ps ->
+      [
+        (match
+           reduce_until_exn ps ~f:(fun acc s ->
+               match (acc, s) with
+               | Ok p, Ok q -> Continue (Ok (Prop.Or (p, q)))
+               | _, (Err _ | Stuck _) -> Stop s
+               | (Err _ | Stuck _), _ -> failwith "unreachable")
+         with
+        | Ok p -> Ok (Prop.simpl p)
+        | s -> s);
+      ]

@@ -104,4 +104,5 @@ let rec exec cfg s p : Executor_state.t status list =
           |> List.concat_map ~f:(fun (s, p) -> exec cfg s p)
       | _ -> failwith "not implemented"
     in
-    [ Ok (Executor_state.simpl s) ]
+
+    match Executor_state.simpl s with Some s -> [ Ok s ] | None -> []

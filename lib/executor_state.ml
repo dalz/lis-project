@@ -134,31 +134,41 @@ let list_of_norm_prop (_, Norm_prop.Disj ds) =
 
 let subst { dummies; heap; path_cond } x y =
   let f z = if Dummy.equal x z then y else z in
-  {
-    dummies = Map.map dummies ~f;
-    heap =
-      Map.map heap ~f:(function
-        | Val a -> Val (Aexp.subst a x (Var y))
-        | (Undefined | Dealloc) as z -> z);
-    path_cond = Path_cond.subst path_cond x (Var y);
-  }
+  match
+    Map.map heap ~f:(function
+      | Val a -> Val (Aexp.subst a x (Var y))
+      | (Undefined | Dealloc) as z -> z)
+    |> Map.map_keys (module Dummy) ~f
+  with
+  | `Ok heap ->
+      Some
+        {
+          dummies = Map.map dummies ~f;
+          heap;
+          path_cond = Path_cond.subst path_cond x (Var y);
+        }
+  | `Duplicate_key _ -> None
 
 let simpl s =
   let aux ({ path_cond; _ } as s) =
     let path_cond = Path_cond.simpl path_cond in
     Path_cond.get_substs path_cond
-    |> List.fold ~init:{ s with path_cond }
+    |> List.fold_result ~init:{ s with path_cond }
          ~f:(fun ({ path_cond; _ } as s) (x, a) ->
            match a with
-           | Aexp.Var y -> subst s x y
+           | Aexp.Var y -> subst s x y |> Result.of_option ~error:()
            | _ ->
-               { s with path_cond = Path_cond.subst ~noloop:true path_cond x a })
+               Ok
+                 {
+                   s with
+                   path_cond = Path_cond.subst ~noloop:true path_cond x a;
+                 })
   in
   let rec fix f ({ path_cond = pc; _ } as s) =
-    let ({ path_cond = pc'; _ } as s') = f s in
-    if Path_cond.equal pc pc' then s' else fix f s'
+    Result.bind (f s) ~f:(fun ({ path_cond = pc'; _ } as s') ->
+        if Path_cond.equal pc pc' then Ok s' else fix f s')
   in
-  fix aux s
+  match fix aux s with Ok s -> Some s | Error () -> None
 
 let to_prop { dummies; heap; path_cond } =
   let open Prop in

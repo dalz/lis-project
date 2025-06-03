@@ -41,14 +41,17 @@ let () =
            "\n=========================\nExecution from state:\n";
          print (Executor_state.pretty s);
          current_exec ~on_step:print_state s prog)
-  |> List.iter ~f:(function
-       | Executor.Ok s -> print (Prop.pretty s)
-       | Err s ->
-           Out_channel.print_endline "[error]";
-           print_state s
-       | Stuck s ->
-           Out_channel.print_endline "[stuck]";
-           print_state s)
+  |> function
+  | [] -> Out_channel.print_endline "⊥ (all branches pruned)"
+  | ps ->
+      List.iter ps ~f:(function
+        | Executor.Ok s -> print (Prop.pretty s)
+        | Err s ->
+            Out_channel.print_endline "[error]";
+            print_state s
+        | Stuck s ->
+            Out_channel.print_endline "[stuck]";
+            print_state s)
 
 (* let () = Out_channel.print_endline (Aexp.show (Aexp.simpl (Num 1))) *)
 
