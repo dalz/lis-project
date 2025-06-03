@@ -176,7 +176,7 @@ let to_prop { dummies; heap; path_cond } =
              (match v with
              | Val a -> PointsTo (x', a)
              | Dealloc -> PointsToNothing x'
-             | Undefined -> failwith "TODO"))
+             | Undefined -> PointsToUndefined x'))
     |> List.reduce ~f:(fun acc pto -> Sep (acc, pto))
     |> Option.value ~default:(Atom Emp)
   in
