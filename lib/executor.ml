@@ -102,7 +102,11 @@ let rec exec cfg s p : Executor_state.t status list =
       | Choice (p1, p2) ->
           cfg.choice_rule s p1 p2
           |> List.concat_map ~f:(fun (s, p) -> exec cfg s p)
-      | _ -> failwith "not implemented"
+      | Iter p ->
+          let* s' = exec cfg s p in
+          let s'' = abstract_join s s' in
+          let* s''' = exec cfg s'' p in
+          [ Ok (abstract_join ~ensure_equal:true s'' s''') ]
     in
 
     match Executor_state.simpl s with Some s -> [ Ok s ] | None -> []

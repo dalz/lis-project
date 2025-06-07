@@ -5,6 +5,7 @@ type heapval =
   | Val of Aexp.t (* x ↦ e *)
   | Undefined (* x ↦ _ *)
   | Dealloc (* x !↦ *)
+[@@deriving equal]
 
 type t = {
   dummies : (Ide.t, Dummy.t, Ide.comparator_witness) Map.t;
@@ -199,6 +200,143 @@ let to_prop { dummies; heap; path_cond } =
             | Cmp (op, a, b) -> Atom (Bool (Cmp (op, a, b))) ))
   in
   And (dummies, And (heap, path_cond))
+
+(* let stringa_bound b = *)
+(*   (match b with *)
+(*   | `Eq _ -> "=" *)
+(*   | `Ge _ -> ">=" *)
+(*   | `Le _ -> "<=" *)
+(*   | `Any -> "any" *)
+(*   | `Unknown -> "unknown") *)
+(*   ^ *)
+(*   match b with *)
+(*   | `Eq n | `Ge n | `Le n -> " " ^ Int.to_string n *)
+(*   | `Any | `Unknown -> "" *)
+
+(* let stampa_buffa bs = *)
+(*   Stdio.Out_channel.print_endline "buffo:"; *)
+(*   Map.iteri bs ~f:(fun ~key:x ~data:b -> *)
+(*       Stdio.Out_channel.print_endline (Dummy.to_string x ^ " " ^ stringa_bound b)) *)
+
+let abstract_join_path_cond ~ensure_equal s t =
+  let join_bounds ~ignore_unknowns b1 b2 =
+    match (b1, b2) with
+    | `Eq n, `Eq m when n = m -> `Eq n
+    (* if Eq n, Eq m with n <> m then output x <= max(n, m) *)
+    | (`Le n | `Eq n), (`Le m | `Eq m) -> `Le (Int.max n m)
+    | (`Ge n | `Eq n), (`Ge m | `Eq m) -> `Ge (Int.min n m)
+    | `Unknown, _ when ignore_unknowns -> b2
+    | _ -> `Any
+  in
+  let abstract_pc { dummies; path_cond = p; _ } =
+    let rec eval bs = function
+      | Aexp.Num n -> `Eq n
+      | Var x -> Map.find bs x |> Option.value ~default:`Unknown
+      | Uop (Neg, a) -> (
+          match eval bs a with
+          | `Eq n -> `Eq (-n)
+          | `Ge n -> `Le (-n)
+          | `Le n -> `Ge (-n)
+          | (`Any | `Unknown) as a -> a)
+      | Bop (op, a, b) -> (
+          match (op, eval bs a, eval bs b) with
+          | Sum, (`Ge n | `Eq n), (`Ge m | `Eq m) -> `Ge (Int.min n m)
+          | Sub, (`Le n | `Eq n), (`Le m | `Eq m) -> `Le (Int.max n (-m))
+          | _, `Unknown, _ | _, _, `Unknown -> `Unknown
+          | _ -> `Any)
+    in
+    let update_bounds bs =
+      let compute_bound flip bs progress op x e =
+        (* Stdio.Out_channel.print_endline *)
+        (*   (Bool.to_string flip ^ " " ^ Cmp.to_string op ^ " " *)
+        (*  ^ Dummy.to_string x ^ " " ^ Aexp.show e); *)
+        (* stampa_buffa bs; *)
+        let old = Map.find bs x in
+        let new_ =
+          match (flip, op, eval bs e) with
+          | _, _, ((`Any | `Unknown) as b) -> b
+          | _, Cmp.Eq, b -> b
+          | _, Ne, _ -> `Any
+          | false, (Le | Lt), (`Le n | `Eq n) -> `Le n
+          | false, (Le | Lt), `Ge _ -> `Any
+          | true, (Le | Lt), (`Ge n | `Eq n) -> `Ge n
+          | true, (Le | Lt), `Le _ -> `Any
+        in
+        let bs =
+          Map.set bs ~key:x
+            ~data:
+              (join_bounds ~ignore_unknowns:true
+                 (Option.value ~default:`Unknown old)
+                 new_)
+        in
+        ( bs,
+          match (old, new_) with
+          | Some `Unknown, `Unknown -> progress
+          | None, _ | Some `Unknown, _ -> true
+          | _ -> progress )
+      in
+      List.fold p ~init:(bs, false) ~f:(fun (bs, progress) -> function
+        | Path_cond.Cmp (op, Var x, e) -> compute_bound false bs progress op x e
+        | Cmp (op, e, Var x) -> compute_bound true bs progress op x e
+        | Cmp (op, Uop (Neg, Var x), e) ->
+            compute_bound true bs progress op x (Aexp.simpl (Uop (Neg, e)))
+        | Cmp _ | Const _ -> (bs, progress))
+    in
+    let rec fix f x =
+      let y, progress = f x in
+      if progress then fix f y else y
+    in
+    fix update_bounds (Map.empty (module Dummy))
+    |> Map.filteri ~f:(fun ~key:x' ~data:_ ->
+           match Map.find dummies (Dummy.get_ide x') with
+           | Some x'' -> Dummy.equal x' x''
+           | None -> false)
+  in
+  let dedummify_abstract r =
+    match Map.map_keys (module Ide) (abstract_pc r) ~f:Dummy.get_ide with
+    | `Ok m -> m
+    | `Duplicate_key _ -> failwith "should have been removed by abstract_pc"
+  in
+  let bs1 = dedummify_abstract s in
+  let bs2 = dedummify_abstract t in
+  Map.fold_until bs1 ~init:[] ~finish:Fn.id ~f:(fun ~key:x ~data:b1 p ->
+      match Map.find bs2 x with
+      | Some b2 ->
+          let x' = Map.find_exn s.dummies x in
+          if (not ensure_equal) || Poly.equal b1 b2 then
+            match join_bounds ~ignore_unknowns:false b1 b2 with
+            | `Eq n -> Continue (Path_cond.Cmp (Eq, Var x', Num n) :: p)
+            | `Le n -> Continue (Cmp (Le, Var x', Num n) :: p)
+            | `Ge n -> Continue (Cmp (Le, Num n, Var x') :: p)
+            | _ -> Continue p
+          else Stop []
+      | None -> Continue p)
+
+let heap_equal_up_to_dummies s t =
+  let filter_heap u =
+    Map.fold u.dummies ~init:[] ~f:(fun ~key:_ ~data:x' h ->
+        match Map.find u.heap x' with Some v -> (x', v) :: h | None -> h)
+  in
+  let s_heap = filter_heap s in
+  let t_heap = filter_heap t in
+  not
+    (match List.zip s_heap t_heap with
+    | Ok hs ->
+        List.exists hs ~f:(fun ((x', v), (y', u)) ->
+            not
+              (Ide.equal (Dummy.get_ide x') (Dummy.get_ide y')
+              && equal_heapval v u))
+    | Unequal_lengths -> true)
+
+let abstract_join ?(ensure_equal = false) s t =
+  if heap_equal_up_to_dummies s t then
+    { s with path_cond = abstract_join_path_cond ~ensure_equal s t }
+  else
+    {
+      dummies = Map.empty (module Ide);
+      heap = Map.empty (module Dummy);
+      path_cond = [];
+    }
 
 let pretty { dummies; heap; path_cond } =
   (* ^^ (if List.is_empty exvars then empty *)

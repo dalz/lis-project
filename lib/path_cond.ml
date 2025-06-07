@@ -2,9 +2,9 @@ open Base
 open PPrint
 
 type atom = Const of bool | Cmp of Cmp.t * Aexp.t * Aexp.t
-[@@deriving show, equal]
+[@@deriving show, equal, compare]
 
-type t = atom list [@@deriving show, equal]
+type t = atom list [@@deriving show, equal, compare]
 
 let subst ?(noloop = false) p x a =
   List.map p ~f:(function
@@ -143,6 +143,35 @@ let get_substs =
     | _ -> None)
 
 let is_null p x = List.mem p (Cmp (Eq, Var x, Num 0)) ~equal:equal_atom
+
+(* let join_cmp op e e' = *)
+
+(* let pippo p q = *)
+(*   let ( let* ) x f = Option.bind x ~f in *)
+(*   let rec aux p q = *)
+(*     match p with *)
+(*     | [] -> Some [] *)
+(*     | (Const _ as a) :: p -> *)
+(*         let* r = aux p q in *)
+(*         Some (a :: r) *)
+(*     | Cmp (op, Var x, e) :: p -> ( *)
+(*         match *)
+(*           List.partition_tf q ~f:(function *)
+(*             | Cmp (op', Var x', _) -> Cmp.equal op op' && Dummy.equal x x' *)
+(*             | _ -> false) *)
+(*         with *)
+(*         | [ Cmp (_, _, e') ], q -> *)
+(*             let* r = aux p q in *)
+(*             let* ciao = pluto op e e' in *)
+(*             Some (ciao :: r) *)
+(*         | _ -> None) *)
+(*     | Cmp _ :: _ -> None *)
+(*   in *)
+(*   let common, p = List.partition_tf p ~f:(List.mem q ~equal:equal_atom) in *)
+(*   let q = *)
+(*     List.filter q ~f:(fun a -> not (List.mem common a ~equal:equal_atom)) *)
+(*   in *)
+(*   aux p q *)
 
 let pretty p =
   separate_map

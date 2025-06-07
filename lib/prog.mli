@@ -1,4 +1,4 @@
-type t = Cmd of Cmd.t | Seq of t * t | Choice of t * t | Star of t
+type t = Cmd of Cmd.t | Seq of t * t | Choice of t * t | Iter of t
 [@@deriving show]
 
 val fv : t -> Ide.t list * Dummy.t list

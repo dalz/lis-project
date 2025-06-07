@@ -69,6 +69,7 @@ This file defines the common parser for SL+ and ISL+.
 
 (* Dummy tokens *)
 %nonassoc PREFER_A
+%nonassoc STAR
 %nonassoc RPAREN
 
 (** Declaring types *)
@@ -96,7 +97,8 @@ prog :
     | LPAREN; p=prog; RPAREN {p}
     | prog_seq {$1}
     | p1 = prog; PLUS; p2 = prog {Prog.Choice (p1, p2)}
-    | STAR; LPAREN; p = prog; RPAREN {Prog.Star(p)}
+    | STAR; LPAREN; p = prog; RPAREN {Prog.Iter(p)}
+    | p = prog; STAR {Prog.Iter(p)}
     ;
 
 prog_seq:

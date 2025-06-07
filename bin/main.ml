@@ -1,6 +1,7 @@
 open Base
 open Stdio
 open Lis_project
+open Lexing
 
 (* TODO add ≠ to parser *)
 
@@ -9,6 +10,18 @@ let print d =
   Out_channel.print_endline "\n"
 
 let print_state s = print (Executor_state.pretty s)
+
+let print_position outx lexbuf =
+  let pos = lexbuf.lex_curr_p in
+  Out_channel.fprintf outx "\n%d:%d" (pos.pos_lnum - 1)
+    (pos.pos_cnum - pos.pos_bol + 1)
+
+let parse ch =
+  let lexbuf = Lexing.from_channel ch in
+  try Parser.input Lexer.read lexbuf
+  with Parser.Error ->
+    Out_channel.fprintf stderr "%a: syntax error\n" print_position lexbuf;
+    Stdlib.exit (-1)
 
 let () =
   let args = Sys.get_argv () in
@@ -21,11 +34,7 @@ let () =
       Sl_executor.exec
     else failwith "Extension of input file should be .isl or .sl"
   in
-  let pre, prog =
-    In_channel.with_file fname ~f:(fun ch ->
-        let lexbuf = Lexing.from_channel ch in
-        Parser.input Lexer.read lexbuf)
-  in
+  let pre, prog = In_channel.with_file fname ~f:(fun ch -> parse ch) in
   Prop.show pre |> Out_channel.print_endline;
   Prog.show prog |> Out_channel.print_endline;
   let prog_vars =

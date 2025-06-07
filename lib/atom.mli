@@ -4,7 +4,7 @@ type t =
   | PointsTo of Dummy.t * Aexp.t
   | PointsToNothing of Dummy.t
   | PointsToUndefined of Dummy.t
-[@@deriving show, compare]
+[@@deriving show, compare, equal]
 
 val fv : t -> Dummy.t list
 val subst : t -> Dummy.t -> Dummy.t -> t

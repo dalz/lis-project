@@ -5,10 +5,12 @@ This file defines the common parser for SL+ and ISL+.
 (** Header *)
 {
     open Parser
+    open Lexing
 }
 
 (** Identifiers - Named Regular Expressions *)
-let white = [' ' '\t' '\n']+
+let white = [' ' '\t']+
+let newline = '\r' | '\n' | "\r\n"
 let num = ['0'-'9']+
 let ide = ['a'-'z' 'A'-'Z']+
 let comment = '#' [^ '\n' '\r']*
@@ -18,6 +20,7 @@ let dummy_ide = ide '\''+
 rule read =
     parse
     (** Common tokens *)
+    | newline { new_line lexbuf; read lexbuf }
     | white { read lexbuf }
     | "(" { LPAREN }
     | ")" { RPAREN }

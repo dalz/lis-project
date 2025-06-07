@@ -24,4 +24,5 @@ val dummify_bexp :
 val subst : t -> Dummy.t -> Dummy.t -> t option
 val simpl : t -> t option
 val to_prop : t -> Prop.t
+val abstract_join : ?ensure_equal:bool -> t -> t -> t
 val pretty : t -> PPrint.document
