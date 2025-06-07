@@ -15,6 +15,14 @@ type config = {
   alloc_rule : Executor_state.t -> Ide.t -> Executor_state.t status;
   choice_rule :
     Executor_state.t -> Prog.t -> Prog.t -> (Executor_state.t * Prog.t) list;
+  iter_rule :
+    (Executor_state.t -> Prog.t -> Executor_state.t status list) ->
+    (Executor_state.t status list ->
+    (Executor_state.t -> Executor_state.t status list) ->
+    Executor_state.t status list) ->
+    Executor_state.t ->
+    Prog.t ->
+    Executor_state.t status list;
 }
 
 let assign s x e =
@@ -102,11 +110,7 @@ let rec exec cfg s p : Executor_state.t status list =
       | Choice (p1, p2) ->
           cfg.choice_rule s p1 p2
           |> List.concat_map ~f:(fun (s, p) -> exec cfg s p)
-      | Iter p ->
-          let* s' = exec cfg s p in
-          let s'' = abstract_join s s' in
-          let* s''' = exec cfg s'' p in
-          [ Ok (abstract_join ~ensure_equal:true s'' s''') ]
+      | Iter p -> cfg.iter_rule (exec cfg) ( let* ) s p
     in
 
     match Executor_state.simpl s with Some s -> [ Ok s ] | None -> []

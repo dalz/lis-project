@@ -64,12 +64,12 @@ This file defines the common parser for SL+ and ISL+.
 %right ASSIGN  
 %nonassoc NOT 
 %nonassoc DOT
+%nonassoc SEMICOLON
 %left PLUS MINUS
 %left MULT DIV MOD
 
 (* Dummy tokens *)
 %nonassoc PREFER_A
-%nonassoc STAR
 %nonassoc RPAREN
 
 (** Declaring types *)
@@ -94,17 +94,20 @@ input :
 (* Program Rule *)
 
 prog :
-    | LPAREN; p=prog; RPAREN {p}
-    | prog_seq {$1}
-    | p1 = prog; PLUS; p2 = prog {Prog.Choice (p1, p2)}
-    | STAR; LPAREN; p = prog; RPAREN {Prog.Iter(p)}
-    | p = prog; STAR {Prog.Iter(p)}
+    | p = prog_nt; SEMICOLON?; EOF { p }
+
+prog_nt :
+    | p1 = prog_nt; SEMICOLON; p2 = prog_nt { Prog.Seq (p1, p2) }
+    | LPAREN; p=prog_nt; RPAREN {p}
+    | p1 = prog_nt; PLUS; p2 = prog_nt {Prog.Choice (p1, p2)}
+    | LPAREN; p = prog_nt; RPAREN; STAR {Prog.Iter(p)}
+    | c = cmd { Prog.Cmd c }
     ;
 
-prog_seq:
-    | c = cmd; SEMICOLON? { Prog.Cmd c }
-    | c = cmd; SEMICOLON; p = prog_seq { Prog.Seq (Prog.Cmd c, p) }
-    ;
+/* prog_seq: */
+/*     | c = cmd; SEMICOLON? { Prog.Cmd c } */
+/*     | c = cmd; SEMICOLON; p = prog_seq { Prog.Seq (Prog.Cmd c, p) } */
+/*     ; */
 
 (* Command Rule *)
 cmd :

@@ -12,6 +12,14 @@ type config = {
   alloc_rule : Executor_state.t -> Ide.t -> Executor_state.t status;
   choice_rule :
     Executor_state.t -> Prog.t -> Prog.t -> (Executor_state.t * Prog.t) list;
+  iter_rule :
+    (Executor_state.t -> Prog.t -> Executor_state.t status list) ->
+    (Executor_state.t status list ->
+    (Executor_state.t -> Executor_state.t status list) ->
+    Executor_state.t status list) ->
+    Executor_state.t ->
+    Prog.t ->
+    Executor_state.t status list;
 }
 
 val exec : config -> Executor_state.t -> Prog.t -> Executor_state.t status list

@@ -27,8 +27,17 @@ let alloc_rule s x =
 (* TODO interactive mode? *)
 let choice_rule s p1 _p2 = [ (s, p1) ]
 
+let iter_rule exec ( let* ) s p =
+  let rec unroll s n =
+    if n = 0 then [ Ok s ]
+    else
+      let* s = exec s p in
+      unroll s (n - 1)
+  in
+  unroll s 7
+
 let exec ~on_step s p =
-  Executor.exec { bind; on_step; alloc_rule; choice_rule } s p
+  Executor.exec { bind; on_step; alloc_rule; choice_rule; iter_rule } s p
   |> List.map ~f:(function
        | Ok s -> Ok (Executor_state.to_prop s)
        | Err s -> Err s

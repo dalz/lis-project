@@ -16,6 +16,12 @@ let alloc_rule s x =
 
 let choice_rule s p1 p2 = [ (s, p1); (s, p2) ]
 
+let iter_rule exec ( let* ) s p =
+  let* s' = exec s p in
+  let s'' = Executor_state.abstract_join s s' in
+  let* s''' = exec s'' p in
+  [ Ok (Executor_state.abstract_join ~ensure_equal:true s'' s''') ]
+
 let reduce_until_exn ~f = function
   | x :: y :: zs -> (
       match f x y with
@@ -27,7 +33,7 @@ let reduce_until_exn ~f = function
 
 let exec ~on_step s p =
   match
-    Executor.exec { bind; on_step; alloc_rule; choice_rule } s p
+    Executor.exec { bind; on_step; alloc_rule; choice_rule; iter_rule } s p
     |> List.map ~f:(function
          | Ok s -> Ok (Executor_state.to_prop s)
          | (Err _ | Stuck _) as s -> s)
