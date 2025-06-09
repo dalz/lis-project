@@ -2,3 +2,10 @@ _build/
 _opam/
 .DS_Store
 LIS_Project.pdf
+
+*.aux
+*.pdf
+*.fls
+*.log
+*.fdb_latexmk
+_minted

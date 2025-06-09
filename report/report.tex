@@ -1,0 +1,192 @@
+\documentclass{scrartcl}
+
+\title{Titolo (the 8th dwarf)}
+\date{2025}
+
+\input{preamble.tex}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+  We present a tool to compute SL+ and ISL+ postconditions.
+\end{abstract}
+
+\section{Dummy stuff}
+
+brief description of the logic and its rules
+
+\section{Symbolic execution}
+
+Given a precondition and a program, we produce a postcondition by means of symbolic execution. The program is executed step by step, using the postcondition of a command as the precondition of the next.
+
+\subsection{Executor state}
+
+During symbolic execution, the logical proposition that is currently known to hold (\ie the postcondition of the previous command or initial precondition) is kept in a normal form with the following shape:
+\begin{align*}
+  &x = x' \wedge y = y' \wedge \dots \\
+  &\wedge (x' \mapsto a_1 \ast x'' \mapsto a_2 \ast \dots \ast y' \mapsto b_1 \ast y'' \mapsto b_2 \ast \dots) \\
+  &\wedge p
+\end{align*}
+\ie a single equality between each program variable and a dummy variable, the heap with possibly a chunk for each dummy variable (but not for program variables), and a path condition \(p\). The path condition is a conjunction of comparisons and boolean constants, and cannot contain program variables.
+
+In OCaml, this is implemented as (\texttt{executor\_state.ml}):
+\begin{minted}{ocaml}
+  type heapval =
+    | Val of Aexp.t (* x ↦ e *)
+    | Undefined (* x ↦ _ *)
+    | Dealloc (* x !↦ *)
+
+  type t = {
+    dummies : (Ide.t, Dummy.t, Ide.comparator_witness) Map.t;
+    heap : (Dummy.t, heapval, Dummy.comparator_witness) Map.t;
+    path_cond : Path_cond.t;
+  }
+\end{minted}
+
+The motivation for keeping equalities on program variables (\ml{Ide.t}) separate from the rest is to be always able to apply the frame rule without extra processing. Propositions can be framed out only if they don't include program variables, so the only piece of the normal form that cannot be framed out is the \ml{dummies} map. All rules take either a generic proposition or a proposition that includes \(\mathrm{emp}_{\mathbb X_{p}}\), that can always match the formula represented by \ml{dummies}, which consequently never needs to be framed out.
+
+The heap is represented by a map to easily identify duplicate chunks, that imply falsehood.
+
+The path condition cannot contain disjunction, as the executor state represents a single branch in the symbolic execution. Whenever a disjunction would be produced, the executor is called on the two branches with two separate states instead. Moreover, it doesn't need existential quantifiers as they are removed by the normalization procedure.
+
+\subsection{Normalization}
+
+We produce a list of executor states from the input precondition as follows.
+First, we rewrite the precondition to an intermediate form with the shape
+\[\exists X.\;\bigvee_{i}\bigast_{j}\bigwedge_{k} A_{ijk},\]
+with \(A\) an atomic proposition, by distributivity rules and pushing out of existential quantifiers (\texttt{norm\_prop.ml}). Then we separate the disjunct; we will produce a distinct state for each of them. We replace all program variables with fresh dummy variables, and remember the association in the \ml{dummies} map. Finally, we extract the chunks into the \ml{heap} map and put the rest into the path condition, turning \(\ast\) into \(\wedge\) as they are equivalent in the absence of chunks.
+
+If we find two chunks for the same location in the same separating conjunct (\ie connected by \(\wedge\)), we keep only one in the \ml{heap} map and add an equality between the pointed-to values to the path condition. If we find them in the same disjunct (connected by \(\ast\)) we add false to the path condition.
+
+\subsection{Executor status}
+
+Executor states are wrapped in a monad that tracks the current status of the executor: produced a value, encountered an error, unable to apply any rule.
+
+\begin{minted}{ocaml}
+  type 'a status =
+    | Ok of 'a (* typically 'a = Executor_state.t *)
+    | Err of Executor_state.t
+    | Stuck of Executor_state.t
+\end{minted}
+
+The executor is parameterized over the bind operator of the status monad, to generalize over the different interpretations of errors between SL+ and ISL+.
+
+\begin{minted}{ocaml}
+  (* SL+ *)
+  let bind x f =
+    match x with Ok s -> f s | Err s -> [ Stuck s ] | Stuck _ -> [ x ]
+
+  (* ISL+ *)
+  let bind x f =
+    match x with
+    | Ok s -> f s
+    | Err s ->
+        List.map (f s) ~f:(function Ok z -> Err z | (Err _ | Stuck _) as z -> z)
+    | Stuck _ -> [ x ]
+\end{minted}
+
+When composing two computations \(f\) and \(g\), if the \(f\) an \ml{Ok} result then \(g\) is always executed; if \(f\) gets stuck the state is returned immediately, without executing \(g\); errors are turned into stuck states in SL+, while in ISL+ execution continues but \ml{Ok} results of \(g\) are turned into errors.
+
+\subsection{Executor}
+
+The executor is parameterized with a configuration structure, which includes the bind operator and functions implementing the rules that differ between SL+ and ISL+. It takes as input an executor state and a program, and returns a list of statuses, the possible outcomes (postconditions) of executing the program.
+
+At the end of the execution of the whole program, we join the postconditions with disjunctions (according to the Disj and Choice rules) in SL+, while we keep them as different possible outcomes in ISL+.
+
+\begin{minted}{ocaml}
+  let rec exec cfg s p : Executor_state.t status list =
+    let ( let* ) (ss : Executor_state.t status list) f =
+      List.concat_map ss ~f:(fun s -> cfg.bind s f)
+    in
+    let open Prog in
+    if Path_cond.is_false s.path_cond then []
+    else
+      let* s =
+        match p with
+        | Cmd c -> exec_cmd ~alloc_rule:cfg.alloc_rule s c
+        | Seq (p1, p2) ->
+            let* s = exec cfg s p1 in
+            cfg.on_step s;
+            exec cfg s p2
+        | Choice (p1, p2) ->
+            cfg.choice_rule s p1 p2
+            |> List.concat_map ~f:(fun (s, p) -> exec cfg s p)
+        | Iter p -> cfg.iter_rule (exec cfg) ( let* ) s p
+      in
+      match Executor_state.simpl s with Some s -> [ Ok s ] | None -> []
+\end{minted}
+
+We will briefly go over the implementation of all rules.
+
+\subsubsection{Commands}
+
+
+
+\subsubsection{Sequence}
+
+This is simply a matter of executing the two programs in sequence. The bind operator takes care of errors, stuck execution, and branching (the second \ml{exec} call is applied to \emph{all} postconditions generated by the first).
+
+\subsubsection{Choice}
+
+This rule differs between SL+ and ISL+. In the former we execute both branches, in the latter we may select either both or a single one.
+
+\begin{minted}{ocaml}
+  (* SL+ *)
+  let choice_rule s p1 p2 = [ (s, p1); (s, p2) ]
+
+  (* ISL+ TODO *)
+  let choice_rule s p1 _p2 = [ (s, p1) ]
+\end{minted}
+
+\subsubsection{Iteration}
+
+Iteration again differs between the two logics.
+
+In ISL+, we can simply choose a number of iterations to perform (unrolling):
+\begin{minted}{ocaml}
+  let iter_rule exec ( let* ) s p =
+    let rec unroll s n =
+      if n = 0 then [ Ok s ]
+      else
+        let* s = exec s p in
+        unroll s (n - 1)
+    in
+    unroll s 7
+\end{minted}
+
+In SL+, we use AI\footnote{Abstract Interpretation} to identify a loop invariant:
+\begin{minted}{ocaml}
+  let iter_rule exec ( let* ) s p =
+    let* s' = exec s p in
+    let s'' = Executor_state.abstract_join s s' in
+    let* s''' = exec s'' p in
+    [ Ok (Executor_state.abstract_join ~ensure_equal:true s'' s''') ]
+\end{minted}
+we execute the loop body once, find a proposition that is valid both before and after the iteration (candidate invariant) via the \ml{abstract_join} function, then execute again the body using that proposition as the precondition. If the candidate is equivalent to the postcondition after the latter iteration we use it as the invariant. If it isn't, a trivial postcondition (true) is returned.
+
+\ml{abstract_join} performs a simple abstract interpretation of the path condition over the domain of integer bounds. For example, it interprets \(x + 1\) as \(\geq 0\) if \(x = 0\). This is enough to conclude:
+\begin{minted}{text}
+  { 0 <= x ∗ 0 <= y }  (y ← y + x)⋆  { y >= 0 }
+\end{minted}
+
+We don't support invariants involving changes to the heap; if the heap is modified in the loop, we use true as the invariant.
+
+Since we create a new dummy variable for each change to a program variable, loop bodies that modify a variable never have their precondition equal to the postcondition. For example:
+\begin{minted}{text}
+  { x = 0 }  x ← 0  { x = 0 }
+\end{minted}
+is actually:
+\begin{minted}{text}
+  { x = x' ∧ x' = 0 }  x ← 0  { x = x'' ∧ x' = 0 ∧ x'' = 0 }
+\end{minted}
+so when checking for equality we keep only the last version of each dummy variable and ignore the superscript. Here we would be comparing \texttt{\{ x = x' ∧ x' = 0 \}} with \texttt{\{ x = x'' ∧ x'' = 0 \}} and considering \texttt{x'} equal to \texttt{x''}.
+
+\section{Simplification}
+
+\section{Parser and front-end}
+
+\section{Examples}
+
+\end{document}
