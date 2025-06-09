@@ -1,7 +1,18 @@
 \documentclass[parskip=half]{scrartcl}
 
-\title{Titolo (the 8th dwarf)}
-\date{2025}
+\title{Computing SL+ and ISL+ postconditions via symbolic execution}
+\subtitle{LIS project}
+\date{2025-06-xx}
+\author{ % random order
+  Massimiliano Baglioni      \and
+  Salvatore Salerno          \and
+  Anna Francesca Montagnoli  \and
+  Sofia Pisani               \and
+  Lorenzo Pace               \and
+  Jhonatan Azevedo Gonçalves \and
+  Alessio Duè                \and
+  Pamela Di Clemente         \and
+  Emanuele Buonaccorsi}
 
 \input{preamble.tex}
 
@@ -253,7 +264,7 @@ Similar to store, but replaces a \texttt{x' ↦ \_} or \texttt{x' ↦ v} chunk w
 
 Unsurprisingly:
 
-\begin{minted}
+\begin{minted}{ocaml}
   | Error -> [ Err s ]
 \end{minted}
 
