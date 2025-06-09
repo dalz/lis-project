@@ -8,4 +8,5 @@ LIS_Project.pdf
 *.fls
 *.log
 *.fdb_latexmk
+*.out
 _minted

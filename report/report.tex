@@ -1,4 +1,4 @@
-\documentclass{scrartcl}
+\documentclass[parskip=half]{scrartcl}
 
 \title{Titolo (the 8th dwarf)}
 \date{2025}
@@ -35,8 +35,8 @@ In OCaml, this is implemented as (\texttt{executor\_state.ml}):
 \begin{minted}{ocaml}
   type heapval =
     | Val of Aexp.t (* x ↦ e *)
-    | Undefined (* x ↦ _ *)
-    | Dealloc (* x !↦ *)
+    | Undefined     (* x ↦ _ *)
+    | Dealloc       (* x ↦̸   *)
 
   type t = {
     dummies : (Ide.t, Dummy.t, Ide.comparator_witness) Map.t;
@@ -118,15 +118,148 @@ At the end of the execution of the whole program, we join the postconditions wit
       match Executor_state.simpl s with Some s -> [ Ok s ] | None -> []
 \end{minted}
 
-We will briefly go over the implementation of all rules.
+We will briefly go over the implementation of all the rules.
 
 \subsubsection{Commands}
 
+The \ml{exec_cmd} function handles the following cases:
 
+\minisec{Skip}
+
+Successfully returns the current state as is.
+
+\begin{minted}{ocaml}
+  | Skip -> [ Ok s ]
+\end{minted}
+
+\minisec{Assert}
+
+Corresponds to the \texttt{?} operator in the syntax.
+
+Adds the boolean expression to the path condition. If the expression contains disjunctions multiple states are returned, one for each choice.
+
+\begin{minted}{ocaml}
+  | Assert e ->
+      List.map (Executor_state.add_bexp_to_path_cond s e) ~f:(fun s -> Ok s)
+\end{minted}
+
+\minisec{Assign}
+
+Assignment of an arithmetic expression \texttt{e} to a program variable \texttt{x} is performed as follows:
+\begin{enumerate}
+\item Create a fresh dummy variable \texttt{x'}.
+\item Replace all program variables in \texttt{e} with dummy variables, obtaining \texttt{e'}. A variable \texttt{y} is replaced with \texttt{y'} if \texttt{y = y'} is in the executor state (\ie \texttt{y} maps to \texttt{y'} in \ml{s.dummies}), or with a fresh dummy variable (which is then added to \ml{dummies}) otherwise.
+\item \texttt{x = x'} is added to \texttt{dummies} (possibly replacing a previous association of \texttt{x} to a dummy variable) and \texttt{x' = e'} to the path condition.
+\end{enumerate}
+
+So for each change to a program variable we introduce a new dummy variable that tracks that reflects that change. This differs from the original rules of the logic in that there the dummy variables are created on demand when needed. We instead chose an eager approach to facilitate the automated application of the frame rule.
+
+\begin{minted}{ocaml}
+  let assign s x e =
+    let x' = Dummy.fresh_of_ide x in
+    let dummies, e' = Executor_state.dummify_aexp s.dummies e in
+    let e' = Aexp.simpl e' in
+    Executor_state.add_bexp_to_path_cond
+      { s with dummies = Map.set dummies ~key:x ~data:x' }
+      (Cmp (Eq, Var x', e'))
+    |> List.hd_exn
+\end{minted}
+
+\minisec{Load}
+
+Corresponds to the \texttt{x ← [y]} syntax.
+
+Looks up the dummy variable \texttt{y'} associated to \texttt{y}, then looks for \texttt{y' = 0} in the path condition, returning an error if it finds it. Otherwise, it finds a chunk for \texttt{y'} in the heap and assigns it to \texttt{x} as discussed above. \ml{heap_val} returns an error if \texttt{y'} has been deallocated, and \texttt{Stuck} if it was never allocated or is undefined (allocated but never assigned).
+
+Note that in SL+ \ml{Err} is turned into \ml{Stuck} by the status monad, so we can reuse the same implementation for both logics even if ISL+ continues execution after reading from a null or deallocated location (in an error state) and SL+ doesn't.
+
+\begin{minted}{ocaml}
+  | AssignFromRef (x, y) ->
+      let* y' = dummy_of y in
+      if Path_cond.is_null s.path_cond y' then [ Err s ]
+      else
+        let* e = heap_val y' in
+        [ Ok (assign s x e) ]
+\end{minted}
+
+\minisec{Store}
+
+Stores (\texttt{[x] ← y}) work similarly, returning an error if \texttt{x}'s dummy variable \texttt{x'} is null or deallocated, and getting stuck if it was never allocated.
+
+\texttt{store s x' v} adds a \texttt{x' ↦ v} chunk to the heap.
+
+\begin{minted}{ocaml}
+  | AssignToRef (x, y) ->
+      let* x' = dummy_of x in
+      if Path_cond.is_null s.path_cond x' then [ Err s ]
+      else
+        let v =
+          match Map.find s.dummies y with
+          | Some y' -> Aexp.Var y'
+          | None -> Aexp.Num 0
+        in
+        let* _ = heap_has x' in
+        [ Ok (store s x' (Val v)) ]
+\end{minted}
+
+\minisec{Allocation}
+
+In SL+, \texttt{x ← alloc()} creates a new dummy variable \texttt{x'}, sets it as the current dummy variable for \texttt{x}, and adds a \texttt{x ↦ \_} chunk to the heap.
+
+\begin{minted}{ocaml}
+  let alloc_rule s x =
+    let x' = Dummy.fresh_of_ide x in
+    Ok
+      Executor_state.
+        {
+          s with
+          heap = Map.set s.heap ~key:x' ~data:Undefined;
+          dummies = Map.set s.dummies ~key:x ~data:x';
+        }
+\end{minted}
+
+In ISL+, we can additionally reuse previously deallocated locations. As a proof of concept we always reuse the first deallocated location we find, but the rule could be easily adapted so that it explores multiple possibilities.
+
+\begin{minted}{ocaml}
+  let alloc_rule s x =
+    let open Executor_state in
+    let x' =
+      Map.to_alist s.heap
+      |> List.find_map ~f:(function x', Dealloc -> Some x' | _ -> None)
+      |> Option.value_or_thunk ~default:(fun () -> Dummy.fresh_of_ide x)
+    in
+    Ok
+      {
+        s with
+        heap = Map.set s.heap ~key:x' ~data:Undefined;
+        dummies = Map.set s.dummies ~key:x ~data:x';
+      }
+\end{minted}
+
+\minisec{Free}
+
+Similar to store, but replaces a \texttt{x' ↦ \_} or \texttt{x' ↦ v} chunk with \texttt{x' ↦̸}.
+
+\begin{minted}{ocaml}
+  | Free x ->
+      let* x' = dummy_of x in
+      if Path_cond.is_null s.path_cond x' then [ Err s ]
+      else
+        let* _ = heap_has x' in
+        [ Ok (store s x' Dealloc) ]
+\end{minted}
+
+\minisec{Error}
+
+Unsurprisingly:
+
+\begin{minted}
+  | Error -> [ Err s ]
+\end{minted}
 
 \subsubsection{Sequence}
 
-This is simply a matter of executing the two programs in sequence. The bind operator takes care of errors, stuck execution, and branching (the second \ml{exec} call is applied to \emph{all} postconditions generated by the first).
+This is simply a matter of executing the two programs in sequence. The bind operator takes care of errors, stuck executions, and branching (the second \ml{exec} call is applied to \emph{all} postconditions generated by the first).
 
 \subsubsection{Choice}
 
@@ -184,6 +317,16 @@ is actually:
 so when checking for equality we keep only the last version of each dummy variable and ignore the superscript. Here we would be comparing \texttt{\{ x = x' ∧ x' = 0 \}} with \texttt{\{ x = x'' ∧ x'' = 0 \}} and considering \texttt{x'} equal to \texttt{x''}.
 
 \section{Simplification}
+
+At various points a number of simplification procedures are applied to the formulas generated by the executor. The key ones are those for executor states, path conditions and arithmetic expressions.
+
+Arithmetic simplification (\texttt{aexp.ml}) applies a set of rewriting rules that push parentheses and constants to the right, replacing subexpressions with their computed result whenever possible.
+
+Path conditions are conjunctions of boolean constants and comparisons. Simplification eliminates the constants and applies arithmetic simplification to the operands of the comparisons. It then tries to reason about bounds, \eg eliminating \texttt{x < 1} from \texttt{x < 0 ∧ x < 1}. % FIXME doesn't work
+
+To simplify an executor state we first invoke the path condition simplification procedure, then try to extract and apply substitutions from the path condition. For example, if we have \texttt{x' = 0} in the path condition and \texttt{y' ↦ x'} in the heap, we replace the chunk with \texttt{y' ↦ 0}; from \texttt{x' ↦ \_ ∗ y' ↦ \_ ∧ x' = y'} we deduce false.
+
+We also have a few more basic procedures for other types, such as the AST produced from reading the user's precondition and from the final list of executor states.
 
 \section{Parser and front-end}
 

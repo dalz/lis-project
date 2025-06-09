@@ -1,3 +1,6 @@
+\usepackage{polyglossia}
+\setdefaultlanguage{english}
+
 \usepackage{mathtools,amssymb}
 
 \usepackage{fontspec}
@@ -12,10 +15,14 @@
 \setmonofont[RawFeature={fallback=monofb}]{Inconsolata}
 \setmathfont{Tex Gyre Pagella Math}
 
+\usepackage{microtype}
+
 \usepackage{minted}
+\setminted{fontsize=\small}
 \newcommand*{\ml}[1]{\mintinline{ocaml}{#1}}
 
 \usepackage{xspace,scalerel}
 \newcommand*{\ie}{i.e.\xspace}
 \DeclareMathOperator*{\bigast}{\scalerel*{\ast}{\sum}}
 
+\usepackage[hidelinks,unicode]{hyperref}
