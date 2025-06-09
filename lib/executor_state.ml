@@ -100,22 +100,26 @@ let build_heap chunks =
         | Emp -> None
         | Bool _ -> failwith "unreachable")
   |> List.fold
-       ~init:(Map.empty (module Dummy))
+       ~init:(Map.empty (module Dummy), [])
        ~f:(fun
-           map
+           (map, p)
            ((`PointsTo (x, _) | `PointsToNothing x | `PointsToUndefined x) as
             pto)
          ->
-         match
-           Map.add map ~key:x
-             ~data:
-               (match pto with
-               | `PointsTo (_, e) -> Val e
-               | `PointsToNothing _ -> Dealloc
-               | `PointsToUndefined _ -> Undefined)
-         with
-         | `Ok map -> map
-         | `Duplicate -> failwith "TODO simplification should have noticed?")
+         let data =
+           match pto with
+           | `PointsTo (_, e) -> Val e
+           | `PointsToNothing _ -> Dealloc
+           | `PointsToUndefined _ -> Undefined
+         in
+         match Map.add map ~key:x ~data with
+         | `Ok map -> (map, p)
+         | `Duplicate -> (
+             match (Map.find_exn map x, pto) with
+             | Val a, `PointsTo (_, b) -> (map, Path_cond.Cmp (Eq, a, b) :: p)
+             | Undefined, `PointsTo _ -> (Map.set map ~key:x ~data, p)
+             | (Val _ | Undefined), `PointsToUndefined _ -> (map, p)
+             | _ -> (map, [ Const false ])))
 
 let add_bexp_to_path_cond { dummies; heap; path_cond } b =
   let dummies, b = dummify_bexp dummies b in
@@ -126,10 +130,10 @@ let add_bexp_to_path_cond { dummies; heap; path_cond } b =
 let list_of_norm_prop (_, Norm_prop.Disj ds) =
   let dummies, ds = dummify_ds ds in
   let aux (chunks, bool_preds) : t list =
+    let heap, path_cond = build_heap chunks in
     List.reduce bool_preds ~f:(fun a b -> Bexp.Bop (And, a, b))
     |> Option.value ~default:(Bexp.Const true)
-    |> add_bexp_to_path_cond
-         { dummies; heap = build_heap chunks; path_cond = [] }
+    |> add_bexp_to_path_cond { dummies; heap; path_cond }
   in
   extract_chunks ds |> List.concat_map ~f:aux
 

@@ -53,6 +53,7 @@ rule read =
     | "<" { LT }
     | "<=" | "≤" { LE }
     | "=" { EQ }
+    | "!=" | "<>" | "≠" { NEQ }
     
     (** Atom tokens *)
     | "emp" {EMP}

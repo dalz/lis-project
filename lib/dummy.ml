@@ -49,8 +49,7 @@ module T = struct
         ~f:(Option.value_map ~default:1 ~f:(( + ) 1)) )
 
   let fresh_of_t (x, n) =
-    if n = 0 then (Ide.fresh_of_t x, 0) else failwith "TODO decide what to do"
-  (* Ide.fresh_of_t x |> fresh_of_ide *)
+    if n = 0 then (Ide.fresh_of_t x, 0) else failwith "not allowed"
 
   let is_ide (_, n) = n = 0
   let get_ide (x, _) = x

@@ -48,8 +48,7 @@ let exec_cmd ~alloc_rule s =
     match Map.find s.heap x with
     | Some (Val v) -> Ok v
     | Some Dealloc -> Err s
-    | Some Undefined | None ->
-        Stuck s (* TODO decide what to do with undefined *)
+    | Some Undefined | None -> Stuck s
   in
   let heap_has x =
     match Map.find s.heap x with

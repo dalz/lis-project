@@ -27,6 +27,7 @@ This file defines the common parser for SL+ and ISL+.
 %token LT
 %token LE 
 %token EQ
+%token NEQ
 
 (** Atom Tokens *)
 %token EMP
@@ -193,6 +194,7 @@ bexp :
     | a1 = aexp LT a2 = aexp { Cmp(Lt, a1, a2) }
     | a1 = aexp LE a2 = aexp { Cmp(Le, a1, a2) }
     | a1 = aexp EQ a2 = aexp { Cmp(Eq, a1, a2) }
+    | a1 = aexp NEQ a2 = aexp { Cmp(Ne, a1, a2) }
     | b1 = bexp AND b2 = bexp { Bop(And, b1, b2) }
     | b1 = bexp OR b2 = bexp { Bop(Or, b1, b2) }
     | NOT b = bexp { Not b }
