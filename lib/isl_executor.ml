@@ -24,8 +24,38 @@ let alloc_rule s x =
       dummies = Map.set s.dummies ~key:x ~data:x';
     }
 
-(* TODO interactive mode? *)
-let choice_rule s p1 _p2 = [ (s, p1) ]
+(** Let the user decide which path to take in the choice rule. *)
+let rec interactive_choice_rule s p1 p2 =
+  (* Printing message to the user *)
+  Stdio.Out_channel.print_endline "Non-det choice between:\n\t- left_path:";
+  PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Prog.pretty p1);
+  Stdio.Out_channel.print_endline "\n\t- right_path:";
+  PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Prog.pretty p2);
+  Stdio.Out_channel.print_endline
+    "Input 'L' for selecting the left path or 'R' for the right one (default \
+     is L).";
+
+  (* Getting user's choice from stdin *)
+  let user_choice =
+    Option.value (In_channel.input_line In_channel.stdin) ~default:"L"
+  in
+
+  (* Going through the selected path *)
+  match user_choice with
+  | "L" -> [ (s, p1) ]
+  | "R" -> [ (s, p2) ]
+  | _ ->
+      Stdio.Out_channel.output_string Stdio.stdout "Invalid input, retrying...";
+      interactive_choice_rule s p1 p2
+
+(** Executes the choice rule. The decision of the branch is by default given to
+    the user. If `interactive` is setted to `false` then the program chooses at
+    random *)
+let choice_rule ?(interactive = true) (s : Executor_state.t) p1 p2 =
+  if interactive then interactive_choice_rule s p1 p2
+  else
+    let random_choice = Random.int 2 in
+    if random_choice = 0 then [ (s, p1) ] else [ (s, p2) ]
 
 let iter_rule exec ( let* ) s p =
   let rec unroll s n =
