@@ -343,4 +343,330 @@ We also have a few more basic procedures for other types, such as the AST produc
 
 \section{Examples}
 
+The following section will list some examples, starting from the input files content and showing the corresponding output.
+
+The examples will highlight the verifier's key capabilities, progressing from simple to more complex scenarios.
+
+Some of the examples include as last commented line a possible valid expected post condition.  
+
+\subsection{SL+ Examples}
+
+\begin{enumerate}
+
+\item \textbf{Input file}: 
+\begin{minted}{text}
+{ y ↦ v }
+x := [y]
+# { x=v ∧ y ↦ v }
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+y ↦ v
+=========================
+Execution from state:
+y¹ ↦ v¹ ∧ v = v¹ ∧ y = y¹ ∧ ⊤
+-------------------------
+v = v¹ ∧ x = v¹ ∧ y = y¹ ∧ y¹ ↦ v¹ ∧ x¹ = v¹
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ x ↦ _ }
+[x] := y; 
+# {x ↦ y }
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+x ↦ _
+=========================
+Execution from state:
+x¹ ↦ _∧ x = x¹∧ ⊤
+-------------------------
+x = x¹ ∧ x¹ ↦ 0
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ emp }
+x := alloc()
+# { x ↦ _ } 
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+⊤
+=========================
+Execution from state:
+⊤
+-------------------------
+x = x¹ ∧ x¹ ↦ _
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ x ↦ _ }
+free(x); 
+# {emp}
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+x ↦ _
+=========================
+Execution from state:
+x¹ ↦ _ ∧ x = x¹ ∧ ⊤
+-------------------------
+x = x¹ ∧ x¹ ↦̸
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{false}
+[x] := y   
+#{false}
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+⊥
+⊥ (all branches pruned)
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ (-(x × 5) + (8 / 4 - x) × -x / 7 + -x + -x × -1) = 0 }
+skip
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+(-x + 2) × x / -7 - x × 5 = 0
+=========================
+Execution from state:
+x = x¹ ∧ (-x¹ + 2) × x¹ / -7 - x¹ × 5 = 0
+-------------------------
+x = x¹ ∧ (-x¹ + 2) × x¹ / -7 - x¹ × 5 = 0
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ 0 <= x ∗ 0 <= y }
+(y ← y + x)⋆
+# y >= 0
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+0 ≤ y ∗ 0 ≤ x
+=========================
+Execution from state:
+x = x¹ ∧ y = y¹ ∧ 0 ≤ y¹ ∧ 0 ≤ x¹
+-------------------------
+x = x¹ ∧ y = y¹ ∧ -y¹ ≤ 0 ∧ -x¹ ≤ 0
+\end{minted}
+
+\item \textbf{Input file}: 
+\begin{minted}{text}
+{ ⊤ }
+(x = 1?; y ← x) + (x = 2?; y ← x)
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+⊤
+=========================
+Execution from state:
+⊤
+-------------------------
+x = x¹ ∧ x¹ = 1
+-------------------------
+x = x² ∧ x² = 2
+-------------------------
+x = x¹ ∧ y = x¹ ∧ x¹ = 1 ∧ y¹ = 1
+∨ x = x² ∧ y = x² ∧ x² = 2 ∧ y² = 2
+\end{minted}
+
+\end{enumerate}
+
+\subsection{ISL+ Examples}
+
+\begin{enumerate}
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ x = nil }
+[x] := y
+# { er: x = nil }
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+x = nil
+=========================
+Execution from state:
+nil = nil¹ ∧ x = x¹ ∧ x¹ = nil¹
+-------------------------
+[stuck]
+nil = nil¹ ∧ x = x¹ ∧ x¹ = nil¹
+-------------------------
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ x ↦̸ }
+free(x)
+# {er: x ↦̸ }
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+x ↦̸
+=========================
+Execution from state:
+x¹ ↦̸ ∧ x = x¹ ∧ ⊤
+-------------------------
+[error]
+x¹ ↦̸ ∧ x = x¹ ∧ 
+-------------------------
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ x ↦ v }
+free(x)
+# {ok: x ↦̸ }
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+x ↦ v
+=========================
+Execution from state:
+x¹ ↦ v¹ ∧ v = v¹ ∧ x = x¹ ∧ ⊤
+-------------------------
+v = v¹ ∧ x = x¹ ∧ x¹ ↦̸ ∧ ⊤
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ x = x' }
+x := alloc()
+# { ok: x ↦ _ }
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+x = x¹
+=========================
+Execution from state:
+x = x² ∧ x² = x¹
+-------------------------
+x = x³ ∧ x³ ↦ _ ∧ ⊤ ∧ x² = x¹
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ y ↦̸ }
+x := alloc()
+# { ok: x ↦ v ∧ x = y }
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+y ↦̸
+=========================
+Execution from state:
+y¹ ↦̸ ∧ y = y¹ ∧ ⊤
+-------------------------
+x = y¹ ∧ y = y¹ ∧ y¹ ↦ _ ∧ ⊤
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ x = nil }
+free(x)
+# {er: x = nil}
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ ⊤ }
+x ← 0;
+(x ← x + 1)⋆
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+⊤
+=========================
+Execution from state:
+⊤
+-------------------------
+x = x¹ ∧ x¹ = 0
+-------------------------
+x = x⁸ ∧ emp ∧ ⊤ ∧ x¹ = 0 ∧ x² = 1 ∧ x³ = 2 ∧ x⁴ = 3 
+∧ x⁵ = 4 ∧ x⁶ = 5 ∧ x⁷ = 6 ∧ x⁸ = 7
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+x = nil
+=========================
+Execution from state:
+nil = nil¹ ∧ x = x¹ ∧ x¹ = nil¹
+-------------------------
+[stuck]
+nil = nil¹ ∧ x = x¹ ∧ x¹ = nil¹
+-------------------------
+\end{minted}
+
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ (-(x × 5) + (8 / 4 - x) × -x / 7 + -x + -x × -1) = 0 }
+skip
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+(-x + 2) × x / -7 - x × 5 = 0
+=========================
+Execution from state:
+x = x¹ ∧ (-x¹ + 2) × x¹ / -7 - x¹ × 5 = 0
+-------------------------
+x = x¹ ∧ emp ∧ ⊤ ∧ (-x¹ + 2) × x¹ / -7 - x¹ × 5 = 0
+\end{minted}
+
+\end{enumerate}
+
 \end{document}
