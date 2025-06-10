@@ -3,7 +3,6 @@ open Stdio
 open Lis_project
 open Lexing
 
-(* TODO add ≠ to parser *)
 let usage_msg = "lis_project [OPTIONS] [filename]"
 let input_file = ref ""
 let force_isl = ref false

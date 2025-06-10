@@ -32,8 +32,8 @@ let rec interactive_choice_rule s p1 p2 =
   Stdio.Out_channel.print_endline "\n\t- right_path:";
   PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Prog.pretty p2);
   Stdio.Out_channel.print_endline
-    "Input 'L' for selecting the left path or 'R' for the right one (default \
-     is L).";
+    "Input 'L' for selecting the left path or 'R' for the right one or 'B' for \
+     doing both.";
 
   (* Getting user's choice from stdin *)
   let user_choice =
@@ -44,6 +44,7 @@ let rec interactive_choice_rule s p1 p2 =
   match user_choice with
   | "L" -> [ (s, p1) ]
   | "R" -> [ (s, p2) ]
+  | "B" -> [ (s, p1); (s, p2) ]
   | _ ->
       Stdio.Out_channel.output_string Stdio.stdout "Invalid input, retrying...";
       interactive_choice_rule s p1 p2
