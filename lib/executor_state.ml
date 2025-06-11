@@ -205,28 +205,31 @@ let to_prop { dummies; heap; path_cond } =
   in
   And (dummies, And (heap, path_cond))
 
-(* let stringa_bound b = *)
-(*   (match b with *)
-(*   | `Eq _ -> "=" *)
-(*   | `Ge _ -> ">=" *)
-(*   | `Le _ -> "<=" *)
-(*   | `Any -> "any" *)
-(*   | `Unknown -> "unknown") *)
-(*   ^ *)
-(*   match b with *)
-(*   | `Eq n | `Ge n | `Le n -> " " ^ Int.to_string n *)
-(*   | `Any | `Unknown -> "" *)
+(*
+let bound_to_string b =
+  (match b with
+  | `Eq _ -> "="
+  | `Ge _ -> ">="
+  | `Le _ -> "<="
+  | `Any -> "any"
+  | `Unknown -> "unknown")
+  ^
+  match b with
+  | `Eq n | `Ge n | `Le n -> " " ^ Int.to_string n
+  | `Any | `Unknown -> ""
 
-(* let stampa_buffa bs = *)
-(*   Stdio.Out_channel.print_endline "buffo:"; *)
-(*   Map.iteri bs ~f:(fun ~key:x ~data:b -> *)
-(*       Stdio.Out_channel.print_endline (Dummy.to_string x ^ " " ^ stringa_bound b)) *)
+let print_bounds bs =
+  Stdio.Out_channel.print_endline "[";
+  Map.iteri bs ~f:(fun ~key:x ~data:b ->
+      Stdio.Out_channel.print_endline
+        ("  " ^ Dummy.to_string x ^ " " ^ bound_to_string b));
+  Stdio.Out_channel.print_endline "]"
+*)
 
 let abstract_join_path_cond ~ensure_equal s t =
   let join_bounds ~ignore_unknowns b1 b2 =
     match (b1, b2) with
-    | `Eq n, `Eq m when n = m -> `Eq n
-    (* if Eq n, Eq m with n <> m then output x <= max(n, m) *)
+    | `Eq n, `Eq m -> if n = m then `Eq n else if n < m then `Ge n else `Le m
     | (`Le n | `Eq n), (`Le m | `Eq m) -> `Le (Int.max n m)
     | (`Ge n | `Eq n), (`Ge m | `Eq m) -> `Ge (Int.min n m)
     | `Unknown, _ when ignore_unknowns -> b2
@@ -244,22 +247,29 @@ let abstract_join_path_cond ~ensure_equal s t =
           | (`Any | `Unknown) as a -> a)
       | Bop (op, a, b) -> (
           match (op, eval bs a, eval bs b) with
+          | Sum, `Eq n, `Eq m -> `Eq (n + m)
+          | Sub, `Eq n, `Eq m -> `Eq (n - m)
           | Sum, (`Ge n | `Eq n), (`Ge m | `Eq m) -> `Ge (Int.min n m)
           | Sub, (`Le n | `Eq n), (`Le m | `Eq m) -> `Le (Int.max n (-m))
+          | Sum, (`Le n | `Eq n), `Le m when m <= 0 -> `Le n
+          | Sub, (`Le n | `Eq n), `Ge m when m >= 0 -> `Le n
+          | Sub, `Ge n, `Le m when m <= 0 -> `Ge n
           | _, `Unknown, _ | _, _, `Unknown -> `Unknown
           | _ -> `Any)
     in
     let update_bounds bs =
-      let compute_bound flip bs progress op x e =
-        (* Stdio.Out_channel.print_endline *)
-        (*   (Bool.to_string flip ^ " " ^ Cmp.to_string op ^ " " *)
-        (*  ^ Dummy.to_string x ^ " " ^ Aexp.show e); *)
-        (* stampa_buffa bs; *)
+      let compute_bound flip bs progress (op : Cmp.t) x e =
+        (*
+        Stdio.Out_channel.print_endline
+          (Bool.to_string flip ^ " " ^ Cmp.to_string op ^ " "
+         ^ Dummy.to_string x ^ " " ^ Aexp.show e);
+         print_bounds bs;
+         *)
         let old = Map.find bs x in
         let new_ =
           match (flip, op, eval bs e) with
           | _, _, ((`Any | `Unknown) as b) -> b
-          | _, Cmp.Eq, b -> b
+          | _, Eq, b -> b
           | _, Ne, _ -> `Any
           | false, (Le | Lt), (`Le n | `Eq n) -> `Le n
           | false, (Le | Lt), `Ge _ -> `Any

@@ -502,6 +502,41 @@ x = x¹ ∧ y = x¹ ∧ x¹ = 1 ∧ y¹ = 1
 ∨ x = x² ∧ y = x² ∧ x² = 2 ∧ y² = 2
 \end{minted}
 
+\item 
+\textbf{Input file}: 
+\begin{minted}{text}
+{ ⊤ }
+
+x := 0;
+y := 1;
+(y := y + 1)⋆;
+(x := x - y)⋆;
+((x > 0)?; z := 1) + ((x < 0)?; z := 2);
+\end{minted}
+
+\textbf{Output}: 
+\begin{minted}{text}
+Simplified precondition:
+⊤
+=========================
+Execution from state:
+⊤
+-------------------------
+x = x¹ ∧ x¹ = 0
+-------------------------
+x = x¹ ∧ y = y¹ ∧ x¹ = 0 ∧ y¹ = 1
+-------------------------
+x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ = 0
+-------------------------
+x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ ≤ 0
+-------------------------
+x = x¹ ∧ y = y¹ ∧ ⊥
+-------------------------
+<= 0 < 0 < 0 <= 0 x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ < 0
+-------------------------
+x = x¹ ∧ y = y¹ ∧ z = z¹ ∧ -y¹ ≤ -1 ∧ x¹ < 0 ∧ z¹ = 2
+\end{minted}
+
 \end{enumerate}
 
 \subsection{ISL+ Examples}
