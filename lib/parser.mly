@@ -24,7 +24,9 @@
 %token OR
 %token NOT
 %token LT
-%token LE 
+%token LE
+%token GT
+%token GE
 %token EQ
 %token NEQ
 
@@ -236,6 +238,8 @@ bexp :
     | b = BOOL { Const b }
     | a1 = aexp LT a2 = aexp { Cmp(Lt, a1, a2) }
     | a1 = aexp LE a2 = aexp { Cmp(Le, a1, a2) }
+    | a1 = aexp GT a2 = aexp { Cmp(Lt, a2, a1) }
+    | a1 = aexp GE a2 = aexp { Cmp(Le, a2, a1) }
     | a1 = aexp EQ a2 = aexp { Cmp(Eq, a1, a2) }
     | a1 = aexp NEQ a2 = aexp { Cmp(Ne, a1, a2) }
     | b1 = bexp AND b2 = bexp { Bop(And, b1, b2) }
