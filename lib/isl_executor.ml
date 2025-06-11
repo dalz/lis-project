@@ -14,10 +14,14 @@ let bind x f =
     fresh new one without touching the stack. *)
 let alloc_rule s x =
   let open Executor_state in
-  let get_user_choice =
-    Stdio.Out_channel.print_endline
+  let user_message =
+    Printf.sprintf
       "Select one among the following strategies for allocating the new \
-       variable:";
+       variable %s :"
+      (Ide.to_string x)
+  in
+  let get_user_choice =
+    Stdio.Out_channel.print_endline user_message;
     Stdio.Out_channel.print_endline
       "1 - Reuse the first deallocated location the program can find (if any \
        exists)";
@@ -54,11 +58,11 @@ let alloc_rule s x =
     let available_string =
       available_list
       |> List.mapi ~f:(fun i x ->
-             Printf.sprintf "%d - %s ; " (i + 1) (Dummy.to_string x))
+             Printf.sprintf "%d) %s ; " (i + 1) (Dummy.to_string x))
       |> String.concat
     in
 
-    let select_location =
+    let select_location () =
       Stdio.Out_channel.print_endline
         "Select the index of one among the available locations to deallocate:";
       Stdio.Out_channel.print_endline available_string;
@@ -68,11 +72,11 @@ let alloc_rule s x =
         |> Option.value ~default:"1" |> Int.of_string_opt
         |> Option.value ~default:1
       in
-      List.nth available_list choice
+      List.nth available_list (choice - 1)
       |> Option.value_or_thunk ~default:(fun () -> Dummy.fresh_of_ide x)
     in
 
-    if List.length available_list > 0 then select_location
+    if List.length available_list > 0 then select_location ()
     else (
       Stdio.Out_channel.print_endline
         "No memory location to deallocate, allocating a new entry";
