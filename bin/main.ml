@@ -41,7 +41,14 @@ let _parse ch =
     Out_channel.fprintf stderr "%a: syntax error\n" print_position lexbuf;
     Stdlib.exit (-1)
 
-let step_by_step s =
+let step_by_step s (c : Cmd.t) =
+  let separator = "=========================" in
+  Stdio.Out_channel.print_endline separator;
+  Stdio.Out_channel.print_string "current command :";
+  PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Cmd.pretty c);
+  Stdio.Out_channel.print_endline "";
+  Stdio.Out_channel.print_endline separator;
+
   if not !no_verbose then (
     print (Executor_state.pretty s);
     if !step_exec then

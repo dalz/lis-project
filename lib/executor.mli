@@ -8,7 +8,7 @@ type config = {
     Executor_state.t status ->
     (Executor_state.t -> Executor_state.t status list) ->
     Executor_state.t status list;
-  on_step : Executor_state.t -> unit;
+  on_step : Executor_state.t -> Cmd.t -> unit;
   alloc_rule : Executor_state.t -> Ide.t -> Executor_state.t status;
   choice_rule :
     Executor_state.t -> Prog.t -> Prog.t -> (Executor_state.t * Prog.t) list;

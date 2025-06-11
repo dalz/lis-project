@@ -11,7 +11,7 @@ type config = {
     Executor_state.t status ->
     (Executor_state.t -> Executor_state.t status list) ->
     Executor_state.t status list;
-  on_step : Executor_state.t -> unit;
+  on_step : Executor_state.t -> Cmd.t -> unit;
   alloc_rule : Executor_state.t -> Ide.t -> Executor_state.t status;
   choice_rule :
     Executor_state.t -> Prog.t -> Prog.t -> (Executor_state.t * Prog.t) list;
@@ -95,16 +95,16 @@ let rec exec cfg s p : Executor_state.t status list =
   let ( let* ) (ss : Executor_state.t status list) f =
     List.concat_map ss ~f:(fun s -> cfg.bind s f)
   in
-
   let open Prog in
   if Path_cond.is_false s.path_cond then []
   else
     let* s =
       match p with
-      | Cmd c -> exec_cmd ~alloc_rule:cfg.alloc_rule s c
+      | Cmd c ->
+          cfg.on_step s c;
+          exec_cmd ~alloc_rule:cfg.alloc_rule s c
       | Seq (p1, p2) ->
           let* s = exec cfg s p1 in
-          cfg.on_step s;
           exec cfg s p2
       | Choice (p1, p2) ->
           cfg.choice_rule s p1 p2
