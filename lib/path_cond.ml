@@ -19,7 +19,9 @@ let is_false = function [ Const false ] -> true | _ -> false
 let simpl_cmp (op : Cmp.t) a b =
   match (op, Aexp.simpl (Bop (Sub, a, b))) with
   | Eq, _ when Aexp.equal a b -> Const true
-  | Eq, Bop ((Sum | Sub), Uop (Neg, Var x), a) -> Cmp (op, Var x, a)
+  | Eq, Bop (Sum, Uop (Neg, Var x), a) -> Cmp (op, Var x, a)
+  | Eq, Bop (Sub, Uop (Neg, Var x), a) ->
+      Cmp (op, Var x, Aexp.simpl (Uop (Neg, a)))
   | _, Bop (Sum, ((Var _ | Uop (Neg, Var _)) as x), a) ->
       Cmp (op, x, Aexp.simpl (Uop (Neg, a)))
   | _, Bop (Sub, ((Var _ | Uop (Neg, Var _)) as x), a) -> Cmp (op, x, a)
@@ -27,7 +29,7 @@ let simpl_cmp (op : Cmp.t) a b =
   | _, a -> Cmp (op, a, Num 0)
 
 let rec simpl_bounds =
-  let comp = function
+  let compute = function
     | `Le -> ( <= )
     | `Lt -> ( < )
     | `Ge -> ( >= )
@@ -39,19 +41,19 @@ let rec simpl_bounds =
     match (op1, b1, op2, b2) with
     | `Eq, Num n, `Eq, Num m -> if n <> m then `False else `Keep
     | `Eq, Num n, ((`Lt | `Le | `Gt | `Ge) as op), Num m ->
-        if comp op n m then `DiscardRight else `False
+        if compute op n m then `DiscardRight else `False
     | `Eq, a, (`Lt | `Gt | `Ne), b ->
         if Aexp.equal a b then `False else `DiscardRight
     | `Lt, Num n, (`Gt | `Ge), Num m -> if n <= m then `False else `Keep
     | `Lt, a, (`Gt | `Ge), b -> if Aexp.equal a b then `False else `Keep
     | `Le, Num n, `Gt, Num m -> if n <= m then `False else `Keep
     | `Le, Num n, `Ge, Num m -> if n < m then `False else `Keep
-    | `Le, a, `Ge, b -> if Aexp.equal a b then `Replace (`Eq, a) else `Keep
+    | `Le, a, `Ge, b -> if Aexp.equal a b then `ReplaceBoth (`Eq, a) else `Keep
     | ((`Lt | `Le | `Gt | `Ge) as op), Num n, op', Num m when Poly.equal op op'
       ->
-        if comp op n m then `DiscardRight else `DiscardLeft
+        if compute op n m then `DiscardRight else `DiscardLeft
     | `Lt, Num n, (`Le as op), Num m | `Gt, Num n, (`Ge as op), Num m ->
-        if comp op n m then `DiscardRight else `DiscardLeft
+        if compute op n m then `DiscardRight else `DiscardLeft
     | _ ->
         if Poly.equal op1 op2 && Aexp.equal b1 b2 then `DiscardRight else `Keep
   in
@@ -72,39 +74,21 @@ let rec simpl_bounds =
           | `Keep -> Ok (b' :: bs, discard)
           | `DiscardLeft -> Ok (b' :: bs, true)
           | `DiscardRight -> Ok (bs, discard)
-          | `Replace r -> Ok (r :: bs, true)
+          | `ReplaceBoth r -> Ok (r :: bs, true)
           | `False -> Error ())
-      |> Result.bind ~f:(function
-           | bs, true -> simpl_bounds bs
-           | bs, false -> simpl_bounds bs |> Result.map ~f:(List.cons b))
+      |> Result.bind ~f:(fun (bs, discard) ->
+             simpl_bounds bs
+             |> Result.map ~f:(fun bs -> if discard then bs else b :: bs))
 
 let update_bounds bmap cmp =
-  let ribalt = function
-    | `Le -> `Ge
-    | `Lt -> `Gt
-    | `Ge -> `Le
-    | `Gt -> `Lt
-    | (`Eq | `Ne) as op -> op
+  let op_to_poly flip (op : Cmp.t) =
+    if flip then match op with Lt -> `Gt | Le -> `Ge | Eq -> `Eq | Ne -> `Ne
+    else match op with Lt -> `Lt | Le -> `Le | Eq -> `Eq | Ne -> `Ne
   in
-  let negate_flip_op neg flip (op : Cmp.t) =
-    let op =
-      match (neg, op) with
-      | false, Le -> `Le
-      | true, Le -> `Gt
-      | false, Lt -> `Lt
-      | true, Lt -> `Ge
-      | false, Eq -> `Eq
-      | true, Eq -> `Ne
-      | false, Ne -> `Ne
-      | true, Ne -> `Eq
-    in
-    if flip then ribalt op else op
-  in
-
   let aux bmap cmp flip =
     (match cmp with
-    | Cmp (op, Var x, b) -> Some (x, negate_flip_op false flip op, b)
-    | Cmp (op, Uop (Neg, Var x), b) -> Some (x, negate_flip_op true flip op, b)
+    | Cmp (op, Var x, b) -> Some (x, op_to_poly flip op, b)
+    | Cmp (op, Uop (Neg, Var x), b) -> Some (x, op_to_poly (not flip) op, b)
     | _ -> None)
     |> Option.map ~f:(fun (x, op, b) ->
            Map.find bmap x |> Option.value ~default:[]
@@ -143,35 +127,6 @@ let get_substs =
     | _ -> None)
 
 let is_null p x = List.mem p (Cmp (Eq, Var x, Num 0)) ~equal:equal_atom
-
-(* let join_cmp op e e' = *)
-
-(* let pippo p q = *)
-(*   let ( let* ) x f = Option.bind x ~f in *)
-(*   let rec aux p q = *)
-(*     match p with *)
-(*     | [] -> Some [] *)
-(*     | (Const _ as a) :: p -> *)
-(*         let* r = aux p q in *)
-(*         Some (a :: r) *)
-(*     | Cmp (op, Var x, e) :: p -> ( *)
-(*         match *)
-(*           List.partition_tf q ~f:(function *)
-(*             | Cmp (op', Var x', _) -> Cmp.equal op op' && Dummy.equal x x' *)
-(*             | _ -> false) *)
-(*         with *)
-(*         | [ Cmp (_, _, e') ], q -> *)
-(*             let* r = aux p q in *)
-(*             let* ciao = pluto op e e' in *)
-(*             Some (ciao :: r) *)
-(*         | _ -> None) *)
-(*     | Cmp _ :: _ -> None *)
-(*   in *)
-(*   let common, p = List.partition_tf p ~f:(List.mem q ~equal:equal_atom) in *)
-(*   let q = *)
-(*     List.filter q ~f:(fun a -> not (List.mem common a ~equal:equal_atom)) *)
-(*   in *)
-(*   aux p q *)
 
 let pretty p =
   separate_map
