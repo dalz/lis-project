@@ -1,16 +1,15 @@
-(**
-This file defines the common parser for SL+ and ISL+.
-*)
+(*This file defines the common parser for SL+ and ISL+.*)
 
-(** Header *)
+
+(* Header *)
 %{
 %}
 
-(** Exp Token *)
+(* Exp Token *)
 %token EOF
 %token LPAREN
 %token RPAREN
-(** Aexp Tokens *)
+(* Aexp Tokens *)
 %token <int> INT
 %token PLUS
 %token MINUS
@@ -29,20 +28,20 @@ This file defines the common parser for SL+ and ISL+.
 %token EQ
 %token NEQ
 
-(** Atom Tokens *)
+(* Atom Tokens *)
 %token EMP
 %token REF
 %token NREF
 %token SOMETHING
 
-(** Proposition Tokens *)
+(* Proposition Tokens *)
 %token EXIST
 %token DOT
 
-(** Program Tokens *)
+(* Program Tokens *)
 %token SEMICOLON
 
-(** Command Tokens *)
+(* Command Tokens *)
 %token SKIP
 %token QUESTION
 %token LBRACK
@@ -53,19 +52,19 @@ This file defines the common parser for SL+ and ISL+.
 %token FREE
 %token ERROR
 
-(** String Token *)
+(* String Token *)
 %token <string> ID
 %token <string * int> DUMMY_ID
 
 %token LBRACE
 %token RBRACE
 
-(** Precedence and associativity *)
+(* Precedence and associativity *)
 %left OR AND SEP
 %right ASSIGN  
 %nonassoc NOT 
 %nonassoc DOT
-%nonassoc SEMICOLON
+%left SEMICOLON        
 %left PLUS MINUS
 %left MULT DIV MOD
 
@@ -73,7 +72,7 @@ This file defines the common parser for SL+ and ISL+.
 %nonassoc PREFER_A
 %nonassoc RPAREN
 
-(** Declaring types *)
+(* Declaring types *)
 %type <Aexp.t> aexp
 %type <Bexp.t> bexp
 %type <Atom.t> atom
@@ -81,63 +80,107 @@ This file defines the common parser for SL+ and ISL+.
 %type <Prog.t> prog
 %type <Prop.t * Prog.t> input
 %type <Dummy.t> id
-(** Declaring the starting point *)
+(* Declaring the starting point *)
 %start input
 
-%% (** ends the declaration section *)
+%% (* ends the declaration section *)
 
 input :
     | LBRACE; pre = prop; RBRACE; prog = prog; EOF { 
-        (* Printf.printf "Parser parsed a correct input\n" ;*)
+         Printf.printf "Parser parsed a correct input\n" ;
         (pre, prog) }
     ;
 
-(* Program Rule *)
-
+(* Program Rules *)
 prog :
-    | p = prog_nt; SEMICOLON?; EOF { p }
+    | p = prog_nt; SEMICOLON?; EOF { 
+        Printf.printf "Parser parsed a correct program\n" ;
+        p }
 
 prog_nt :
-    | p1 = prog_nt; SEMICOLON; p2 = prog_nt { Prog.Seq (p1, p2) }
-    | LPAREN; p=prog_nt; RPAREN {p}
-    | p1 = prog_nt; PLUS; p2 = prog_nt {Prog.Choice (p1, p2)}
-    | LPAREN; p = prog_nt; RPAREN; STAR {Prog.Iter(p)}
+    (* Sequence rule - left associative *)
+    | p1 = prog_nt; SEMICOLON; p2 = prog_nt { 
+        Printf.printf "Parser found a Prog.Seq\n" ;
+        Prog.Seq (p1, p2) }
+    
+    (* Parentheses *)
+    | LPAREN; p = prog_nt; RPAREN {
+        Printf.printf "Parser found a program within parenthesis\n" ;
+        p }
+    
+    (* Choice operation *)
+    | p1 = prog_nt; PLUS; p2 = prog_nt {
+        Printf.printf "Parser found a Prog.Choice\n" ;
+        Prog.Choice (p1, p2) }
+    
+    (* Iteration *)
+    | LPAREN; p = prog_nt; RPAREN; STAR {
+        Printf.printf "Parser found a Prog.Iter\n" ;
+        Prog.Iter(p) }
+    
+    (* Base case - single command *)
     | c = cmd { Prog.Cmd c }
     ;
 
-/* prog_seq: */
-/*     | c = cmd; SEMICOLON? { Prog.Cmd c } */
-/*     | c = cmd; SEMICOLON; p = prog_seq { Prog.Seq (Prog.Cmd c, p) } */
-/*     ; */
+(* Alternative approach using explicit sequence handling *)
+(*
+prog_nt :
+    | seq = prog_sequence { seq }
+    | LPAREN; p = prog_nt; RPAREN {
+        Printf.printf "Parser found a program within parenthesis\n" ;
+        p }
+    | p1 = prog_nt; PLUS; p2 = prog_nt {
+        Printf.printf "Parser found a Prog.Choice\n" ;
+        Prog.Choice (p1, p2) }
+    | LPAREN; p = prog_nt; RPAREN; STAR {
+        Printf.printf "Parser found a Prog.Iter\n" ;
+        Prog.Iter(p) }
+    ;
 
-(* Command Rule *)
+prog_sequence:
+    | c = cmd { Prog.Cmd c }
+    | c = cmd; SEMICOLON; rest = prog_sequence { 
+        Printf.printf "Parser found a Prog.Seq\n" ;
+        Prog.Seq (Prog.Cmd c, rest) }
+    ;
+*)
+
+(* Command Rule - unchanged *)
 cmd :
-    | SKIP {Skip}
-    | b = bexp; QUESTION { Cmd.Assert b }
+    | SKIP {
+        Printf.printf "Parser found a SKIP command\n" ;
+        Skip}
+    | b = bexp; QUESTION { 
+        Printf.printf "Parser found a Cmd.Assert\n" ;
+        Cmd.Assert b }
     | s = ID; ASSIGN; a = aexp {
         let t = Ide.raw_of_string s in
         Cmd.Assign (t, a)
     }
     | s1 = ID; ASSIGN; LBRACK s2 = ID RBRACK {
+        Printf.printf "Parser found an Cmd.AssignFromRef\n" ;
         let t1 = Ide.raw_of_string s1 in
         let t2 = Ide.raw_of_string s2 in
         Cmd.AssignFromRef (t1, t2)
     }
     | LBRACK; s1 = ID; RBRACK; ASSIGN; s2 = ID {
-        (* Printf.printf "Parser Found a AssignToRef\n" ;*)
+         Printf.printf "Parser Found a AssignToRef\n" ;
         let t1 = Ide.raw_of_string s1 in
         let t2 = Ide.raw_of_string s2 in
         Cmd.AssignToRef (t1, t2)
     }
     | s = ID; ASSIGN; ALLOC; LPAREN; RPAREN {
+        Printf.printf "Parser found a Cmd.Alloc command\n" ;
         let t = Ide.raw_of_string s in
         Cmd.Alloc t
     }
     | FREE; LPAREN; s = ID; RPAREN {
+        Printf.printf "Parser found a Cmd.Free\n" ;
         let t = Ide.raw_of_string s in
         Cmd.Free t
     }
     | ERROR; LPAREN; RPAREN {
+        Printf.printf "Parser found a Cmd.Error\n" ;
         Cmd.Error
     }
     ;
@@ -165,10 +208,10 @@ id :
 atom :
     | b = bexp %prec PREFER_A { Bool b }
     | s = id; REF; SOMETHING {
-        (* Printf.printf "Parser Found a PointToUndefined\n" ;*)
+         Printf.printf "Parser Found a PointToUndefined\n" ;
         PointsToUndefined s}
     | s = id; REF; a = aexp { 
-        (* Printf.printf "Parser Found a PointTo\n" ;*)
+         Printf.printf "Parser Found a PointTo\n" ;
         PointsTo (s, a)}
     | s = id; NREF { PointsToNothing s}
     | EMP { Emp }
