@@ -28,16 +28,16 @@ let simpl_cmp (op : Cmp.t) a b =
   | _, Num n -> Const (Cmp.compute op n 0)
   | _, a -> Cmp (op, a, Num 0)
 
-let rec simpl_bounds =
-  let compute = function
-    | `Le -> ( <= )
-    | `Lt -> ( < )
-    | `Ge -> ( >= )
-    | `Gt -> ( > )
-    | `Eq -> ( = )
-    | `Ne -> ( <> )
-  in
+let check_pair b1 b2 =
   let check_pair_aux ((op1, b1) : _ * Aexp.t) ((op2, b2) : _ * Aexp.t) =
+    let compute = function
+      | `Le -> ( <= )
+      | `Lt -> ( < )
+      | `Ge -> ( >= )
+      | `Gt -> ( > )
+      | `Eq -> ( = )
+      | `Ne -> ( <> )
+    in
     match (op1, b1, op2, b2) with
     | `Eq, Num n, `Eq, Num m -> if n <> m then `False else `Keep
     | `Eq, Num n, ((`Lt | `Le | `Gt | `Ge) as op), Num m ->
@@ -47,8 +47,8 @@ let rec simpl_bounds =
     | `Lt, Num n, (`Gt | `Ge), Num m -> if n <= m then `False else `Keep
     | `Lt, a, (`Gt | `Ge), b -> if Aexp.equal a b then `False else `Keep
     | `Le, Num n, `Gt, Num m -> if n <= m then `False else `Keep
+    | `Le, a, `Ge, b when Aexp.equal a b -> `ReplaceBoth (`Eq, a)
     | `Le, Num n, `Ge, Num m -> if n < m then `False else `Keep
-    | `Le, a, `Ge, b -> if Aexp.equal a b then `ReplaceBoth (`Eq, a) else `Keep
     | ((`Lt | `Le | `Gt | `Ge) as op), Num n, op', Num m when Poly.equal op op'
       ->
         if compute op n m then `DiscardRight else `DiscardLeft
@@ -57,16 +57,15 @@ let rec simpl_bounds =
     | _ ->
         if Poly.equal op1 op2 && Aexp.equal b1 b2 then `DiscardRight else `Keep
   in
-  let check_pair b1 b2 =
-    match check_pair_aux b1 b2 with
-    | `Keep -> (
-        match check_pair_aux b2 b1 with
-        | `DiscardLeft -> `DiscardRight
-        | `DiscardRight -> `DiscardLeft
-        | r -> r)
-    | r -> r
-  in
-  function
+  match check_pair_aux b1 b2 with
+  | `Keep -> (
+      match check_pair_aux b2 b1 with
+      | `DiscardLeft -> `DiscardRight
+      | `DiscardRight -> `DiscardLeft
+      | r -> r)
+  | r -> r
+
+let rec simpl_bounds = function
   | [] -> Ok []
   | b :: bs ->
       List.fold_result bs ~init:([], false) ~f:(fun (bs, discard) b' ->
@@ -80,15 +79,16 @@ let rec simpl_bounds =
              simpl_bounds bs
              |> Result.map ~f:(fun bs -> if discard then bs else b :: bs))
 
+let op_to_poly flip (op : Cmp.t) =
+  if flip then match op with Lt -> `Gt | Le -> `Ge | Eq -> `Eq | Ne -> `Ne
+  else match op with Lt -> `Lt | Le -> `Le | Eq -> `Eq | Ne -> `Ne
+
 let update_bounds bmap cmp =
-  let op_to_poly flip (op : Cmp.t) =
-    if flip then match op with Lt -> `Gt | Le -> `Ge | Eq -> `Eq | Ne -> `Ne
-    else match op with Lt -> `Lt | Le -> `Le | Eq -> `Eq | Ne -> `Ne
-  in
   let aux bmap cmp flip =
     (match cmp with
     | Cmp (op, Var x, b) -> Some (x, op_to_poly flip op, b)
-    | Cmp (op, Uop (Neg, Var x), b) -> Some (x, op_to_poly (not flip) op, b)
+    | Cmp (op, Uop (Neg, Var x), b) ->
+        Some (x, op_to_poly (not flip) op, Aexp.simpl (Uop (Neg, b)))
     | _ -> None)
     |> Option.map ~f:(fun (x, op, b) ->
            Map.find bmap x |> Option.value ~default:[]
@@ -103,22 +103,64 @@ let update_bounds bmap cmp =
       |> Result.bind ~f:(fun bmap -> aux bmap (Cmp (op, b, a)) true)
   | _ -> Ok bmap
 
-let simpl p =
-  let p =
-    List.fold_until p
+let pretty p =
+  separate_map
+    (break 1 ^^ utf8string "∧" ^^ space)
+    (function
+      | Const b -> Bexp.pretty (Const b)
+      | Cmp (op, e1, e2) -> Bexp.pretty (Cmp (op, e1, e2)))
+    p
+
+let ss = function
+  | `Le -> "<="
+  | `Lt -> "<"
+  | `Ge -> ">="
+  | `Gt -> ">"
+  | `Eq -> "="
+  | `Ne -> "<>"
+
+let simpl pc =
+  let cmp_to_constant_bound = function
+    | Cmp (op, Var x, Num n) -> Some (x, op_to_poly false op, n)
+    | Cmp (op, Uop (Neg, Var x), Num n) -> Some (x, op_to_poly true op, -n)
+    | _ -> None
+  in
+  let pc =
+    List.fold_until pc
       ~init:([], Map.empty (module Dummy))
-      ~finish:(fun (pc, _) -> pc)
+      ~finish:(fun (pc, _) -> List.rev pc)
       ~f:(fun (pc, bmap) -> function
         | Const true -> Continue (pc, bmap)
-        | Const false as a -> Stop [ a ]
+        | Const false -> Stop [ Const false ]
         | Cmp (op, a, b) -> (
             let cmp = simpl_cmp op a b in
             match update_bounds bmap cmp with
             | Ok bmap -> Continue (cmp :: pc, bmap)
             | Error () -> Stop [ Const false ]))
-    |> List.rev
   in
-  p
+  (* ideally we would reuse the bmap to remove redundant comparisons *)
+  List.filter_map pc ~f:(fun cmp ->
+      match cmp_to_constant_bound cmp with
+      | Some (x, op, n) ->
+          List.fold_until pc ~init:None ~finish:Option.return
+            ~f:(fun repl cmp ->
+              match cmp_to_constant_bound cmp with
+              | Some (x', op', n') ->
+                  if (not (Dummy.equal x x')) || (Poly.equal op op' && n = n')
+                  then Continue repl
+                  else (
+                    Stdio.Out_channel.print_endline
+                      (ss op ^ " " ^ Int.to_string n ^ " " ^ ss op' ^ " "
+                     ^ Int.to_string n');
+                    match check_pair (op, Aexp.Num n) (op', Aexp.Num n') with
+                    | `DiscardLeft -> Stop None
+                    | `ReplaceBoth (`Eq, Num n) ->
+                        Continue (Some (Cmp (Eq, Var x, Num n)))
+                    | _ -> Continue repl)
+              | None -> Continue repl)
+          |> Option.map ~f:(function Some repl -> repl | None -> cmp)
+      | None -> Some cmp)
+  |> List.stable_dedup ~compare:compare_atom
 
 let get_substs =
   List.filter_map ~f:(function
@@ -127,11 +169,3 @@ let get_substs =
     | _ -> None)
 
 let is_null p x = List.mem p (Cmp (Eq, Var x, Num 0)) ~equal:equal_atom
-
-let pretty p =
-  separate_map
-    (break 1 ^^ utf8string "∧" ^^ space)
-    (function
-      | Const b -> Bexp.pretty (Const b)
-      | Cmp (op, e1, e2) -> Bexp.pretty (Cmp (op, e1, e2)))
-    p
