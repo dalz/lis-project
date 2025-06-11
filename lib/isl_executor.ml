@@ -109,7 +109,7 @@ let iter_rule exec ( let* ) s p =
     if n = 0 then acc
     else
       let l = exec s p in
-      let* s = exec s p in
+      let* s = l in
       let acc = if is_all then acc @ l else [ Ok s ] in
       unroll s (n - 1) acc
   in
