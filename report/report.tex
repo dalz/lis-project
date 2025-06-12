@@ -229,7 +229,7 @@ In SL+, \texttt{x ← alloc()} creates a new dummy variable \texttt{x'}, sets it
         }
 \end{minted}
 
-In ISL+, we can additionally reuse previously deallocated locations. As a proof of concept we always reuse the first deallocated location we find, but the rule could be easily adapted so that it explores multiple possibilities.
+In ISL+, we can additionally reuse previously deallocated locations. Interactively we ask the user whether to do it (and which to reuse) or not). Non-interactively we always reuse the first deallocated location we find. Sample implementation without the interactive choice:
 
 \begin{minted}{ocaml}
   let alloc_rule s x =
@@ -276,13 +276,12 @@ This is simply a matter of executing the two programs in sequence. The bind oper
 
 This rule differs between SL+ and ISL+. In the former we execute both branches, in the latter we may select either both or a single one.
 
+The SL+ implementation:
 \begin{minted}{ocaml}
-  (* SL+ *)
   let choice_rule s p1 p2 = [ (s, p1); (s, p2) ]
-
-  (* ISL+ TODO *)
-  let choice_rule s p1 _p2 = [ (s, p1) ]
 \end{minted}
+
+In ISL+ we let the user choose the branch(es) interactively, or pick one at random.
 
 \subsubsection{Iteration}
 
