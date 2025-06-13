@@ -338,7 +338,141 @@ To simplify an executor state we first invoke the path condition simplification 
 
 We also have a few more basic procedures for other types, such as the AST produced from reading the user's precondition and from the final list of executor states.
 
-\section{Parser and front-end}
+
+
+
+
+
+
+
+
+
+\section{Front-End}
+Users can run the project using the command \texttt{dune exec lis-project path\_to\_file},
+providing as argument the path to a file containing the content to execute.
+A valid input file must specify a precondition and a program, adhering to the following standard structure:
+
+\begin{minted}{text}
+{ precondition }
+program
+# Comments can be written by starting them with an '#'
+\end{minted}
+
+Files can have as extension either \texttt{.sl} or \texttt{.isl}, 
+indicating whether they should be executed using 
+\textit{Separation Logic+} or \textit{Incorrectness Separation Logic+}.
+
+
+\subsection{Staring the execution}
+The application's entry point is defined in \texttt{main.ml}.
+Upon execution the application attemps to load the file and then passes it to the lexer, defined in \texttt{lexer.mll}. 
+The file is scanned from beginning to end, stripping away any syntatic sugar and identifying valid tokes.
+The more complex tokens are handled as follows:
+
+\begin{enumerate}
+  \item Any sequence of characters starting with a \# is considered a comment, thus ignored by the lexer.
+  
+  \item \texttt{INT:} a sequence of digits is recognized as an integer. 
+  The string is then converted into an OCaml's integer value and wrapped in the \texttt{INT} token.
+      
+
+  \item \texttt{ID:} an identifier is recognizes as a sequence of alphabetic characters (both uppercase and lowercase) which does not match any other token. 
+        The matching text is stored as part of the \texttt{ID} token.
+  
+  \item \texttt{DUMMY\_ID}: a dummy identifier is similar to an identifier, with the exception that
+        its sequence must end with one or more '\textbackslash{}'.
+        The portion before the backslashes is treated as the name, while the number of backslashes corresponds to the number of apices of the variable.
+        Both values are wrapped into the \texttt{DUMMY\_ID} token: the name as a string and the number of apices as an integer.
+\end{enumerate}
+
+The list of remaning valid tokens is the following:
+\begin{multicols}{3} % Adjust number of columns as needed
+\begin{itemize}
+\item LPAREN = \texttt{(}
+\item RPAREN = \texttt{)}
+\item LBRACE = \texttt{\{}
+\item RBRACE = \texttt{\}}
+\item PLUS = \texttt{+}
+\item MINUS = \texttt{-}
+\item MULT = \texttt{**} | \texttt{×}
+\item DIV = \texttt{/}
+\item MOD = \texttt{\%}
+\item BOOL(true) = \texttt{true} | \texttt{⊤}
+\item BOOL(false) = \texttt{} | \texttt{⊥}
+\item OR = \texttt{||} | \texttt{∨}
+\item AND = \texttt{\&\&} | \texttt{∧}
+\item NOT = \texttt{!} | \texttt{¬}
+\item LT = \texttt{<}
+\item LE = \texttt{<=} | \texttt{≤}
+\item GT = \texttt{>}
+\item GE = \texttt{>=} | \texttt{≥}
+\item EQ = \texttt{=}
+\item NEQ = \texttt{!=} | \texttt{<>} | \texttt{≠}
+\item EMP = \texttt{emp}
+\item REF = \texttt{->} | \texttt{↦}
+\item NREF = \texttt{!->} | \texttt{!↦} | \texttt{↦̸}
+\item SOMETHING = \texttt{\_}
+\item EXIST = \texttt{exists} | $\exists$
+\item SEP = \texttt{*} | \texttt{∗}
+\item DOT = \texttt{.}
+\item SEMICOLON = \texttt{;}
+\item SKIP = \texttt{skip}
+\item QUESTION = \texttt{?}
+\item LBRACK = \texttt{[}
+\item RBRACK = \texttt{]}
+\item ASSIGN = \texttt{:=} | \texttt{←}
+\item ALLOC = \texttt{alloc}
+\item FREE = \texttt{free}
+\item ERROR = \texttt{error}
+\item STAR = \texttt{star} | \texttt{⋆}
+\end{itemize}
+\end{multicols}
+
+The lexer then returns the ordered list of generated tokens, which is then passed to the parser, defined in \texttt{parser.mly}.
+The parser's purpose is to check whether this sequence of tokens forms a syntactically correct program and if so, it trasforms it into an Abstract Syntax Tree(AST).
+The principal parsed AST types are:
+
+\begin{enumerate}
+  \item \texttt{Aexp.t}: an arithmetic expression. It can be either a binary operator between two valid arithmetic expressions (addition, subtraction, multiplication, division or modulo), the negation of an arithmetic expression, or the equality between an arithmetic expression and a variable (an \texttt{ID} token).
+
+  \item \texttt{Bexp.t}: a boolean expression. It can be either a boolean constant (true or false), a comparison between two valid arithmetic expressions, the conjunction or disjunction between two boolean expression, or the negation of a boolean expression.
+
+  \item \texttt{Dummy.t}: an identifier. A \texttt{ID} token is treated as a dummy variable with number of apices equal to 0; a \texttt{DUMMY\_ID} token creates a dummy variable with the associated number of apices.
+  
+  \item \texttt{Atom.t}: an atomic proposition. It can be either a boolean expression, a points-to-anything assertion of the form $x \rightarrow \_$, a points-to assertion with an arithmetic expression in the form $x \rightarrow a$, a dangling pointer assertion in the form $x \nrightarrow$, or the empty heap.
+  
+  \item \texttt{Prop.t}: a proposition. It can be either an atomic one, the conjunction or disjunction between two proposition, or an existentially quantified proposition (i.e. $\exists x. prop$).
+  
+  \item \texttt{Cmd.t}: a command. It could be $skip$, a boolean assertion, an assignemnt to an arithmetic expression, a store, a load, an allocation, a deallocation, or \texttt{error}.
+  
+  \item \texttt{Prog.t} a program. It could be a command, the non-deterministic choice between two commands, the Kleene star, or the sequential composition of two or more programs. Note that a program in our syntax can either end with a semicolon or not.
+\end{enumerate}
+Finally, a well-formed input file has the shape \verb|{ P } C|, where \texttt{P} is a proposition (\texttt{Prop.t}) and \texttt{C} is a program (\texttt{Prog.t}).
+
+
+The \texttt{main} function then applies a normalization step over the produced AST's representation of the precondition, followed by a simplification step.
+Finally, the executor is invoked with the simplified precondition and the corresponding program.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 \section{Examples}
 

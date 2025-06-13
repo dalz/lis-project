@@ -42,7 +42,6 @@ rule read =
     | "**" | "×" { MULT }
     | "/" { DIV }
     | "%" { MOD }
-    | "-" { MINUS }
 
     (** Boolean tokens *)
     | "true" | "⊤" { BOOL (true) }
