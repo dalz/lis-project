@@ -84,7 +84,8 @@ let () =
       Isl_executor.exec
     else if String.equal (Stdlib.Filename.extension fname) ".sl" then
       Sl_executor.exec
-    else failwith "Extension of input file should be .isl or .sl"
+    else if not (String.equal fname "") then failwith "Extension of input file should be .isl or .sl"
+    else failwith "To read program from stdin you must specify --sl or --isl"
   in
 
   let pre, prog =
@@ -93,7 +94,6 @@ let () =
       String.equal fname ""
     then (
       let pr = get_lines "" 0 2 in
-      pr |> Out_channel.print_endline;
       let lexbuf = Lexing.from_string pr in
       Parser.input Lexer.read lexbuf)
     else
