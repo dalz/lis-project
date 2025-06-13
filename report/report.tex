@@ -338,16 +338,7 @@ To simplify an executor state we first invoke the path condition simplification 
 
 We also have a few more basic procedures for other types, such as the AST produced from reading the user's precondition and from the final list of executor states.
 
-
-
-
-
-
-
-
-
-
-\section{Front-End}
+\section{Front-end}
 Users can run the project using the command \texttt{dune exec lis-project path\_to\_file},
 providing as argument the path to a file containing the content to execute.
 A valid input file must specify a precondition and a program, adhering to the following standard structure:
@@ -453,9 +444,25 @@ Finally, a well-formed input file has the shape \verb|{ P } C|, where \texttt{P}
 The \texttt{main} function then applies a normalization step over the produced AST's representation of the precondition, followed by a simplification step.
 Finally, the executor is invoked with the simplified precondition and the corresponding program.
 
+During execution, the application continuously displays the current command being executed along with the executor’s state.
 
+\subsection{ISL+ user's interaction}
+When executing an \textit{Incorrectness Separation Logic+} triple, the front-end offers some degree of interactiondepending on the rule being applied:
 
-
+\begin{itemize}
+  \item \texttt{Allocation:} three allocation strategies are available:
+    \begin{itemize}
+      \item Reuse the first available deallocated location, if any exists.
+      \item Manually select which available deallocated location to reuse, if any exists
+      \item Allocate a new memory location, ignoring any available deallocated ones.
+    \end{itemize}
+  \item \texttt{Choice:} the user can choose which branch to execute or execute both branches.
+  \item \texttt{Iteration:} the user specifies the number $n$ of iterations to perform, and then decides whether to: 
+    \begin{itemize}
+      \item Collect all intermediate states produced during the rule's execution or only consider those after the $n$ iterations have been done.
+      \item Only consider the states resulting after the $n$ iterations.
+    \end{itemize}
+\end{itemize}
 
 
 
