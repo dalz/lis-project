@@ -21,7 +21,7 @@
 \maketitle
 
 \begin{abstract}
-  We present a tool to compute SL+ and ISL+ postconditions.
+  We present VeriDum, a tool that computes SL+ and ISL+ postconditions for a simple nondeterministic imperative calculus. We start by introducing the target logics, then we outline VeriDum's implementation and demonstrate its operation with some examples.
 \end{abstract}
 
 \section{Introduction and Semantics Background}
@@ -362,15 +362,15 @@ we cannot find a derivation.
 \subsection{Dummy variables}
 One of the principles of SL and ISL is the locality. This means that the logic is capable of analyzing code sections regardless of the general state of the whole program. If we look into the incompleteness example of Section \ref{SL} we could argue that it represents a failure of the locality principle, since the rule is invalid due to some commands that will never be executed. But notice that if we somehow had a better way to keep track set of which variables were edited, the rule would be valid. Seeking this more precise set of modified variables, dummy variables were proposed.
 
-Unlike program variables, which are directly manipulated by program commands, dummy variables are introduced only in the assertion language. Their core property is immutability, and once instantiated, their values remain fixed. This stability allows them to express conditions related to the initial or expected values of the program variables. So, a new shorthand assertion \(emp_x\) analogous to the classical \(\mathsf{emp}\) predicate was introduced. However, instead of asserting an empty heap, \(emp_x\) imposes that aside from the heap beeing empty, there also exists a corresponding dummy variable \(x'\) for each program variable \(x \in X\).
+Unlike program variables, which are directly manipulated by program commands, dummy variables are introduced only in the assertion language. Their core property is immutability, and once instantiated, their values remain fixed. This stability allows them to express conditions related to the initial or expected values of the program variables. So, a new shorthand assertion \(emp_X\) analogous to the classical \(\mathsf{emp}\) predicate was introduced. However, instead of asserting an empty heap, \(emp_X\) imposes that aside from the heap being empty, there also exists a corresponding dummy variable \(x'\) for each program variable \(x \in X\).
 
 \[
-empx \triangleq \bigwedge_{x \in X} \exists x'.\ x = x'
+emp_X \triangleq \bigwedge_{x \in X} \exists x'.\ x = x'
 \]
 
 Dummy variables are particularly useful in the context of framing. When dealing with separation logic, we noticed that we may need to frame over memory fragments that refer only to unmodifiable entities (e.g., disallowing references to variables that might be modified). By referring only to dummy variables, frames can provide constraints over unaccessible states, which is essential for preserving locality in the presence of heap-manipulating commands. Moreover, their presence in either preconditions or postconditions, but not both, guarantees that the program variable was not modified over the execution.
 
-Using the new \(emp_x\) assertion in the incompleteness example of Section \ref{SL}, we may now derive the tuple that was not possible to be derved in Separation Logic.
+Using the new \(emp_X\) assertion in the incompleteness example of Section \ref{SL}, we may now derive the tuple that was not possible to be derived in Separation Logic.
 
 
 \[
@@ -407,7 +407,9 @@ In summary, SL+ and ISL+ retain the core reasoning of their classical counterpar
 
 \section{Symbolic execution}
 
-Given a precondition and a program, we produce a postcondition by means of symbolic execution. The program is executed step by step, using the postcondition of a command as the precondition of the next.
+We will now describe the main components of VeriDum, starting from the executor. The code discussed here is available at \url{https://github.com/dalz/lis-project/}.
+
+Given a precondition and a program, we produce a postcondition by means of symbolic execution. The program is executed step by step, using the postcondition of each command as the precondition of the next.
 
 \subsection{Executor state}
 
@@ -419,7 +421,7 @@ During symbolic execution, the logical proposition that is currently known to ho
 \end{align*}
 \ie a single equality between each program variable and a dummy variable, the heap with possibly a chunk for each dummy variable (but not for program variables), and a path condition \(p\). The path condition is a conjunction of comparisons and boolean constants, and cannot contain program variables.
 
-In OCaml, this is implemented as (\texttt{executor\_state.ml}):
+In OCaml, this is implemented as the following type (from \texttt{executor\_state.ml}):
 \begin{minted}{ocaml}
   type heapval =
     | Val of Aexp.t (* x ↦ e *)
@@ -437,7 +439,7 @@ The motivation for keeping equalities on program variables (\ml{Ide.t}) separate
 
 The heap is represented by a map to easily identify duplicate chunks, that imply falsehood.
 
-The path condition cannot contain disjunction, as the executor state represents a single branch in the symbolic execution. Whenever a disjunction would be produced, the executor is called on the two branches with two separate states instead. Moreover, it doesn't need existential quantifiers as they are removed by the normalization procedure.
+The path condition cannot contain disjunctions, as the executor state represents a single branch in the symbolic execution. Whenever a disjunction would be produced, the executor is called on the two branches with two separate states instead. Moreover it doesn't need existential quantifiers as they are removed by the normalization procedure.
 
 \subsection{Normalization}
 
@@ -447,6 +449,8 @@ First, we rewrite the precondition to an intermediate form with the shape
 with \(A\) an atomic proposition, by distributivity rules and pushing out of existential quantifiers (\texttt{norm\_prop.ml}). Then we separate the disjunct; we will produce a distinct state for each of them. We replace all program variables with fresh dummy variables, and remember the association in the \ml{dummies} map. Finally, we extract the chunks into the \ml{heap} map and put the rest into the path condition, turning \(\ast\) into \(\wedge\) as they are equivalent in the absence of chunks.
 
 If we find two chunks for the same location in the same separating conjunct (\ie connected by \(\wedge\)), we keep only one in the \ml{heap} map and add an equality between the pointed-to values to the path condition. If we find them in the same disjunct (connected by \(\ast\)) we add false to the path condition.
+
+Once they are at the outermost level, existential quantifiers can be eliminated according to the Exists rule.
 
 \subsection{Executor status}
 
@@ -459,7 +463,7 @@ Executor states are wrapped in a monad that tracks the current status of the exe
     | Stuck of Executor_state.t
 \end{minted}
 
-The executor is parameterized over the bind operator of the status monad, to generalize over the different interpretations of errors between SL+ and ISL+.
+The executor is parameterized over the bind operator of the status monad, to generalize over SL+ and ISL+'s differing interpretations of errors.
 
 \begin{minted}{ocaml}
   (* SL+ *)
@@ -479,9 +483,9 @@ When composing two computations \(f\) and \(g\), if the \(f\) an \ml{Ok} result 
 
 \subsection{Executor}
 
-The executor is parameterized with a configuration structure, which includes the bind operator and functions implementing the rules that differ between SL+ and ISL+. It takes as input an executor state and a program, and returns a list of statuses, the possible outcomes (postconditions) of executing the program.
+The executor is parameterized by a configuration record, which includes the bind operator and functions implementing the rules that differ between SL+ and ISL+. It takes as input an executor state and a program, and returns a list of statuses, the possible outcomes (postconditions) of executing the program.
 
-At the end of the execution of the whole program, we join the postconditions with disjunctions (according to the Disj and Choice rules) in SL+, while we keep them as different possible outcomes in ISL+.
+At the end of the execution of the whole program we join the postconditions with disjunctions (according to the Disj and Choice rules) in SL+, while we keep them as different possible outcomes (derivable postconditions) in ISL+.
 
 \begin{minted}{ocaml}
   let rec exec cfg s p : Executor_state.t status list =
@@ -540,7 +544,7 @@ Assignment of an arithmetic expression \texttt{e} to a program variable \texttt{
 \item \texttt{x = x'} is added to \texttt{dummies} (possibly replacing a previous association of \texttt{x} to a dummy variable) and \texttt{x' = e'} to the path condition.
 \end{enumerate}
 
-So for each change to a program variable we introduce a new dummy variable that tracks that reflects that change. This differs from the original rules of the logic in that there the dummy variables are created on demand when needed. We instead chose an eager approach to facilitate the automated application of the frame rule.
+So for each change to a program variable we introduce a new dummy variable that reflects that change. This differs from the original rules of the logic in that there the dummy variables are created implicitly and as needed. We instead chose an eager approach to facilitate the automated application of the frame rule.
 
 \begin{minted}{ocaml}
   let assign s x e =
@@ -606,7 +610,7 @@ In SL+, \texttt{x ← alloc()} creates a new dummy variable \texttt{x'}, sets it
         }
 \end{minted}
 
-In ISL+, we can additionally reuse previously deallocated locations. Interactively we ask the user whether to do it (and which to reuse) or not). Non-interactively we always reuse the first deallocated location we find. Sample implementation without the interactive choice:
+In ISL+, we can additionally reuse previously deallocated locations. Interactively we ask the user whether to do it (and which to reuse) or not. Non-interactively we always reuse the first deallocated location we find. Sample implementation without the interactive choice:
 
 \begin{minted}{ocaml}
   let alloc_rule s x =
@@ -649,9 +653,22 @@ Unsurprisingly:
 
 This is simply a matter of executing the two programs in sequence. The bind operator takes care of errors, stuck executions, and branching (the second \ml{exec} call is applied to \emph{all} postconditions generated by the first).
 
+\begin{minted}{ocaml}
+  | Seq (p1, p2) ->
+    let* s = exec cfg s p1 in
+    cfg.on_step s;
+    exec cfg s p2
+\end{minted}
+
 \subsubsection{Choice}
 
 This rule differs between SL+ and ISL+. In the former we execute both branches, in the latter we may select either both or a single one.
+
+\begin{minted}{ocaml}
+  | Choice (p1, p2) ->
+    cfg.choice_rule s p1 p2
+    |> List.concat_map ~f:(fun (s, p) -> exec cfg s p)
+\end{minted}
 
 The SL+ implementation:
 \begin{minted}{ocaml}
@@ -688,7 +705,7 @@ we execute the loop body once, find a proposition that is valid both before and 
 
 \ml{abstract_join} performs a simple abstract interpretation of the path condition over the domain of integer bounds. For example, it interprets \(x + 1\) as \(\geq 0\) if \(x = 0\). This is enough to conclude:
 \begin{minted}{text}
-  { 0 <= x ∗ 0 <= y }  (y ← y + x)⋆  { y >= 0 }
+  { 0 ≤ x ∗ 0 ≤ y }  (y ← y + x)⋆  { 0 ≤ y }
 \end{minted}
 
 We don't support invariants involving changes to the heap; if the heap is modified in the loop, we use true as the invariant.
@@ -731,10 +748,10 @@ indicating whether they should be executed using
 \textit{Separation Logic+} or \textit{Incorrectness Separation Logic+}.
 
 
-\subsection{Staring the execution}
+\subsection{Starting the execution}
 The application's entry point is defined in \texttt{main.ml}.
 Upon execution the application attemps to load the file and then passes it to the lexer, defined in \texttt{lexer.mll}. 
-The file is scanned from beginning to end, stripping away any syntatic sugar and identifying valid tokes.
+The file is scanned from beginning to end, stripping away any syntatic sugar and identifying valid tokens.
 The more complex tokens are handled as follows:
 
 \begin{enumerate}
@@ -744,7 +761,7 @@ The more complex tokens are handled as follows:
   The string is then converted into an OCaml's integer value and wrapped in the \texttt{INT} token.
       
 
-  \item \texttt{ID:} an identifier is recognizes as a sequence of alphabetic characters (both uppercase and lowercase) which does not match any other token. 
+  \item \texttt{ID:} an identifier is recognized as a sequence of alphabetic characters (both uppercase and lowercase) which does not match any other token. 
         The matching text is stored as part of the \texttt{ID} token.
   
   \item \texttt{DUMMY\_ID}: a dummy identifier is similar to an identifier, with the exception that
@@ -824,7 +841,7 @@ Finally, the executor is invoked with the simplified precondition and the corres
 During execution, the application continuously displays the current command being executed along with the executor’s state.
 
 \subsection{ISL+ user's interaction}
-When executing an \textit{Incorrectness Separation Logic+} triple, the front-end offers some degree of interactiondepending on the rule being applied:
+When executing an \textit{Incorrectness Separation Logic+} triple, the front-end offers some degree of interaction depending on the rule being applied:
 
 \begin{itemize}
   \item \texttt{Allocation:} three allocation strategies are available:
