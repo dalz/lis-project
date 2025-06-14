@@ -102,8 +102,8 @@ let () =
           Parser.input Lexer.read lexbuf)
   in
 
-  Prop.show pre |> Out_channel.print_endline;
-  Prog.show prog |> Out_channel.print_endline;
+ (* Prop.show pre |> Out_channel.print_endline;*)
+ (* Prog.show prog |> Out_channel.print_endline;*)
   let prog_vars =
     let ps, ds = Prog.fv prog in
     List.map ps ~f:Dummy.raw_of_ide @ ds
