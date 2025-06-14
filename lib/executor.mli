@@ -22,9 +22,4 @@ type config = {
     Executor_state.t status list;
 }
 
-val exec :
-  ?ghost:bool ->
-  config ->
-  Executor_state.t ->
-  Prog.t ->
-  Executor_state.t status list
+val exec : config -> Executor_state.t -> Prog.t -> Executor_state.t status list

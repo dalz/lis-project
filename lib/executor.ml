@@ -91,7 +91,7 @@ let exec_cmd ~alloc_rule s =
         [ Ok (store s x' Dealloc) ]
   | Error -> [ Err s ]
 
-let rec exec ?(ghost = true) cfg s p : Executor_state.t status list =
+let rec exec cfg s p : Executor_state.t status list =
   let ( let* ) (ss : Executor_state.t status list) f =
     List.concat_map ss ~f:(fun s -> cfg.bind s f)
   in
@@ -101,7 +101,7 @@ let rec exec ?(ghost = true) cfg s p : Executor_state.t status list =
     let* s =
       match p with
       | Cmd c ->
-          if ghost then cfg.on_step s c;
+          cfg.on_step s c;
           exec_cmd ~alloc_rule:cfg.alloc_rule s c
       | Seq (p1, p2) ->
           let* s = exec cfg s p1 in
@@ -109,7 +109,7 @@ let rec exec ?(ghost = true) cfg s p : Executor_state.t status list =
       | Choice (p1, p2) ->
           cfg.choice_rule s p1 p2
           |> List.concat_map ~f:(fun (s, p) -> exec cfg s p)
-      | Iter p -> cfg.iter_rule (exec ~ghost:false cfg) ( let* ) s p
+      | Iter p -> cfg.iter_rule (exec cfg) ( let* ) s p
     in
 
     match Executor_state.simpl s with Some s -> [ Ok s ] | None -> []
