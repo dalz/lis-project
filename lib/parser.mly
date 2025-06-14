@@ -89,35 +89,35 @@
 
 input :
     | LBRACE; pre = prop; RBRACE; prog = prog; EOF { 
-         Printf.printf "Parser parsed a correct input\n" ;
+(*         Printf.printf "Parser parsed a correct input\n" ;*)
         (pre, prog) }
     ;
 
 (* Program Rules *)
 prog :
     | p = prog_nt; SEMICOLON?; EOF { 
-        Printf.printf "Parser parsed a correct program\n" ;
+ (*       Printf.printf "Parser parsed a correct program\n" ;*)
         p }
 
 prog_nt :
     (* Sequence rule - left associative *)
     | p1 = prog_nt; SEMICOLON; p2 = prog_nt { 
-        Printf.printf "Parser found a Prog.Seq\n" ;
+(*        Printf.printf "Parser found a Prog.Seq\n" ;*)
         Prog.Seq (p1, p2) }
     
     (* Parentheses *)
     | LPAREN; p = prog_nt; RPAREN {
-        Printf.printf "Parser found a program within parenthesis\n" ;
+ (*       Printf.printf "Parser found a program within parenthesis\n" ;*)
         p }
     
     (* Choice operation *)
     | p1 = prog_nt; PLUS; p2 = prog_nt {
-        Printf.printf "Parser found a Prog.Choice\n" ;
+(*        Printf.printf "Parser found a Prog.Choice\n" ; *)
         Prog.Choice (p1, p2) }
     
     (* Iteration *)
     | LPAREN; p = prog_nt; RPAREN; STAR {
-        Printf.printf "Parser found a Prog.Iter\n" ;
+ (*       Printf.printf "Parser found a Prog.Iter\n" ; *)
         Prog.Iter(p) }
     
     (* Base case - single command *)
@@ -153,36 +153,36 @@ cmd :
         Printf.printf "Parser found a SKIP command\n" ;
         Skip}
     | b = bexp; QUESTION { 
-        Printf.printf "Parser found a Cmd.Assert\n" ;
+(*        Printf.printf "Parser found a Cmd.Assert\n" ; *)
         Cmd.Assert b }
     | s = ID; ASSIGN; a = aexp {
         let t = Ide.raw_of_string s in
         Cmd.Assign (t, a)
     }
     | s1 = ID; ASSIGN; LBRACK s2 = ID RBRACK {
-        Printf.printf "Parser found an Cmd.AssignFromRef\n" ;
+  (*      Printf.printf "Parser found an Cmd.AssignFromRef\n" ;*)
         let t1 = Ide.raw_of_string s1 in
         let t2 = Ide.raw_of_string s2 in
         Cmd.AssignFromRef (t1, t2)
     }
     | LBRACK; s1 = ID; RBRACK; ASSIGN; s2 = ID {
-         Printf.printf "Parser Found a AssignToRef\n" ;
+(*         Printf.printf "Parser Found a AssignToRef\n" ;*)
         let t1 = Ide.raw_of_string s1 in
         let t2 = Ide.raw_of_string s2 in
         Cmd.AssignToRef (t1, t2)
     }
     | s = ID; ASSIGN; ALLOC; LPAREN; RPAREN {
-        Printf.printf "Parser found a Cmd.Alloc command\n" ;
+ (*       Printf.printf "Parser found a Cmd.Alloc command\n" ;*)
         let t = Ide.raw_of_string s in
         Cmd.Alloc t
     }
     | FREE; LPAREN; s = ID; RPAREN {
-        Printf.printf "Parser found a Cmd.Free\n" ;
+(*        Printf.printf "Parser found a Cmd.Free\n" ; *)
         let t = Ide.raw_of_string s in
         Cmd.Free t
     }
     | ERROR; LPAREN; RPAREN {
-        Printf.printf "Parser found a Cmd.Error\n" ;
+       (*  Printf.printf "Parser found a Cmd.Error\n" ; *)
         Cmd.Error
     }
     ;
@@ -210,10 +210,10 @@ id :
 atom :
     | b = bexp %prec PREFER_A { Bool b }
     | s = id; REF; SOMETHING {
-         Printf.printf "Parser Found a PointToUndefined\n" ;
+         (* Printf.printf "Parser Found a PointToUndefined\n" ; *)
         PointsToUndefined s}
     | s = id; REF; a = aexp { 
-         Printf.printf "Parser Found a PointTo\n" ;
+        (* Printf.printf "Parser Found a PointTo\n" ; *)
         PointsTo (s, a)}
     | s = id; NREF { PointsToNothing s}
     | EMP { Emp }

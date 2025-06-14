@@ -24,9 +24,339 @@
   We present a tool to compute SL+ and ISL+ postconditions.
 \end{abstract}
 
-\section{Dummy stuff}
+\section{Introduction and Semantics Background}
 
-brief description of the logic and its rules
+One of the fundamental questions in software analysis is: \emph{is the program doing what we expect it to do?} More precisely: \emph{does the program behave as intended? Can we detect bugs, or even better, prove their absence? How can we reason about all the possible behaviors of the program?}
+\\ These questions are not just about writing code — they are about understanding the \emph{meaning} of code. In other words, verifying that a program does what it is supposed to do amounts to checking whether it satisfies some \emph{semantic property} of interest.
+\\ To reason about program correctness, we need to formally define what it means for a program to execute — that is, we need a semantics of the programming language. For example, we may ask:
+\begin{itemize}
+    \item What does it mean to execute a command \( c \)?
+    \item How does its execution affect the program state \( \sigma \)?
+\end{itemize}
+
+\subsection{Denotational and Collective Semantics}
+Given a program \( c \), we start from an initial state \( \sigma \) and aim to describe the resulting output state(s). This is captured by the denotational semantics:
+\[
+\llbracket c \rrbracket : \Sigma \rightarrow \Sigma_{\bot}, \quad \text{where } \Sigma_{\bot} = \Sigma \cup \{ \bot \}
+\]
+Here, \( \bot \) represents non-termination. So, for a given input state \( \sigma \), we interpret the command \( c \) as:
+\[
+\llbracket c \rrbracket \sigma = \sigma' \quad \text{or} \quad \bot
+\]
+To analyze instead \emph{all} possible behaviors of a program on a set of input states, we use \textbf{collecting semantics}:
+\[
+\llbracket c \rrbracket : \mathcal{P}(\Sigma) \rightarrow \mathcal{P}(\Sigma)
+\]
+This version of semantics operates on sets of states, and captures all potential outputs from all initial inputs:
+\[
+\llbracket c \rrbracket P = \bigcup_{\sigma \in P} \llbracket c \rrbracket \sigma
+\]
+
+As an example, consider the following simple program:
+\[
+c \triangleq \texttt{if (x > 0) \{ x := 1; \} else \{ x := 2; \}}
+\]
+\begin{itemize}
+    \item Denotational Semantics. Given input state \( \sigma = \{ x \mapsto 0 \} \), we obtain: \( \llbracket c \rrbracket \sigma = \{ x \mapsto 2 \} \)
+    \item Collecting Semantics. For a set of input states \( P = \{ x \mapsto -1, x \mapsto 0, x \mapsto 1 \} \), yields:
+    $\llbracket c \rrbracket P = \{ x \mapsto 1, x \mapsto 2 \}$    
+\end{itemize}
+
+\subsection{Undecidability and Rice's Theorem}
+Before stating Rice's theorem, we recall what is meant by a \emph{non-trivial semantic property}. A semantic property $\mathcal{P}$ of programs in a language $L$ is said to be \emph{non-trivial} if:
+
+\begin{itemize}
+  \item there exists at least one program $c \in L$ such that $\mathcal{P}(c)$ holds (i.e., $c$ satisfies the property), and
+  \item there exists at least one program $c \in L$ such that $\mathcal{P}(c)$ does not hold (i.e., $c$ does not satisfy the property).
+\end{itemize}
+
+Unfortunately, checking whether a program satisfies such a property is undecidable in general. This follows from \textbf{Rice’s theorem}, which states that:
+
+\begin{quote}
+\emph{Let \( L \) be a Turing-complete language, and let \( \mathcal{P} \) be a non-trivial semantic property. Then there is no algorithm that can decide, for every program \( c \in L \), whether \( \mathcal{P}(c) \) holds.}
+\end{quote}
+
+Thus, there is no general analysis method that is \emph{automatic}, \emph{universal}, and \emph{exact}.
+For some programs \( \mathcal{P}(c) \) holds, for others it does not, and in some cases — as in Collatz’s Conjecture — it is not even known whether the program terminates.
+\\ Since we cannot achieve all three goals, we must compromise — giving up on automation, using instead interactive or semi-automated methods; giving up on universality, by analyzing only specific classes of programs; or relaxing on exactness, using approximations.
+\\ The solution we provide gives up on exactness and introduces Over- and Under- approximations.
+\textbf{Over approximation} ($\llbracket c \rrbracket P \subseteq Q$) is suitable for proving correctness: true negatives are preserved, but may introduce false positives.
+Instead, \textbf{Under approximation} ($\llbracket c \rrbracket P \supseteq Q$) is suitable for bug-finding: true positives are preserved but may miss real behaviors (false negatives).
+
+\subsection{Soundness and Completeness}
+
+Ideally, we want:
+\[
+analysis(c) = \text{true} \iff \mathcal{P}(c) \text{ holds}
+\]
+This breaks down into:
+\begin{itemize}
+    \item \textbf{Soundness} ($analysis(c) = \text{true} \Rightarrow c \text{ satisfies the property } \mathcal{P}$): if the analysis says true, the property really holds.
+    \item \textbf{Completeness} ($analysis(c) = \text{true} \Leftarrow c \text{ satisfies the property } \mathcal{P}$): if the property holds, the analysis says true.
+\end{itemize}
+
+Moreover, things can get easily complicated if we add \textbf{nondeterminism}, in which a command \( c \) maps a state to a set of possible output states (meaning that either do not terminate or terminate in Q):
+\[
+\llbracket c \rrbracket : \Sigma \rightarrow \mathcal{P}(\Sigma)
+\]
+This may be due to incomplete knowledge, abstract interpretation, or nondeterministic language constructs like \( c_1 \; \vert\vert \; c_2 \).
+Showing (Non-)Termination isn't a trivial task. 
+\begin{itemize}
+    \item Using \textbf{over-approximation}, we can attempt to show \( \llbracket c \rrbracket \sigma \subseteq \emptyset \)
+    \item Using \textbf{under-approximation}, we can try to find some \( Q \ne \emptyset \) such that \( Q \subseteq \llbracket c \rrbracket \sigma \)
+\end{itemize}
+
+In the next section, we introduce the logics standing at the basis of VeriDum. These are needed in order to formally proof correctness of programs relaxing, as we said before, the notion of exactness. 
+
+\subsection{Hoare Logic}
+We consider a simple imperative language $\mathcal{I}$ with the following syntax:
+
+\textbf{Commands:} $\quad c ::= x := a \mid \texttt{skip} \mid c_1;\,c_2 \mid \texttt{if } b \texttt{ then } c_1 \texttt{ else } c_2 \mid \texttt{while } b \texttt{ do } c$
+
+\textbf{Arithmetic Expressions:} $\quad a ::= n \mid x \mid a_1 + a_2 \mid a_1 - a_2 \mid a_1 * a_2 \mid a_1 / a_2$
+
+\textbf{Boolean Expressions:} $\quad b ::= a_1 \leq a_2 \mid a_1 = a_2 \mid \neg b \mid b_1 \wedge b_2 \mid b_1 \vee b_2$
+
+
+Given the following \textbf{Assertion Language} for writing preconditions and postconditions:
+\begin{align*}
+P &::= \texttt{true} \mid \texttt{false} \mid a_1 < a_2 \mid a_1 = a_2 \mid \neg P \mid P_1 \wedge P_2 \mid \exists x . P
+\end{align*}
+
+Given the following \textbf{Semantic Domains} defined as the set of mathematical objects used to interpret programs, i.e. the values on which the meaning of commands, expressions and programs is formalised: 
+\begin{itemize}
+\item $\sigma : X \rightarrow \mathbb{Z}$ is a \emph{state}, mapping variables to integers;
+\item $\Sigma \triangleq {\sigma : X \rightarrow \mathbb{Z}}$ is the set of all possible program states;
+\item $\mathcal{P}(\Sigma) \triangleq {P \mid P \subseteq \Sigma}$ is the powerset of $\Sigma$, representing sets of states.
+\end{itemize}
+
+Lastly, we recall that an \emph{inference rule} is a formal logical rule that allows deriving a conclusion from one or more premises. It is usually written in the form:
+\[
+\frac{\varphi_1 \quad \varphi_2 \quad \cdots \quad \varphi_n}{\psi}
+\]
+which means that if the premises $\varphi_1, \varphi_2, \ldots, \varphi_n$ hold, then the conclusion $\psi$ can be inferred.
+A \emph{proof system} (or deductive system) is a set of inference rules and axioms that define how to derive valid formulas or judgments within a formal language. It provides a structured way to construct \emph{formal proofs}, i.e., finite sequences of applications of inference rules starting from axioms and leading to the desired conclusion.
+In the context of program verification, a proof system allows us to derive correctness properties (e.g., Hoare triples) by applying inference rules that correspond to the programming constructs and logical assertions.
+These rules are used to derive valid Hoare triples.
+\\ A \emph{Hoare triple} \{ P \} c \{ Q \} expresses a partial correctness specification:
+\begin{quote}
+\emph{If the command $c$ is executed in a state where the precondition $P$ holds, and if the execution terminates, then the postcondition $Q$ will hold afterward.}
+\end{quote}
+Semantically, this means:
+\begin{align*}
+[[c]]P \subseteq Q
+\end{align*}
+
+This specification may include non-reachable states. This is called \textbf{partial correctness}, as it does not guarantee that the program terminates — only that if it does, the postcondition holds.
+As it is deductible, Hoare triples rely on \emph{over-approximation} of program behaviors. This means that the set $[[c]]P$ includes all possible outcomes starting from states satisfying $P$, possibly including states that are not actually reachable, ensuring \emph{no false negatives} in verifying correctness.
+\\ Verifying the correctness of \{ P \} c \{ Q \} corresponds to checking whether command $c$ satisfies the given specification. To construct formal proofs of partial correctness, we use axioms and inference rules. These constitute the axiomatic semantics of the language:
+
+\textbf{(skip)} 
+\[
+\{P\} \;\texttt{skip}\; \{P\}
+\]
+
+\textbf{(assign)} 
+\[
+\{Q[a/x]\} \; x := a \; \{Q\}
+\]
+
+\textbf{(seq)} 
+\[
+\frac{\{P\} \; c_1 \; \{R\} \quad \{R\} \; c_2 \; \{Q\}}{\{P\} \; c_1; c_2 \; \{Q\}}
+\]
+
+\textbf{(cons)} 
+\[
+\frac{P \implies P' \quad \{P'\} \; c \; \{Q'\} \quad Q' \implies Q}{\{P\} \; c \; \{Q\}}
+\]
+
+\textbf{(cond)} 
+\[
+\frac{\{P \wedge b\} \; c_1 \; \{Q\} \quad \{P \wedge \neg b\} \; c_2 \; \{Q\}}{\{P\} \; \texttt{if } b \texttt{ then } c_1 \texttt{ else } c_2 \; \{Q\}}
+\]
+
+\textbf{(while)} 
+\[
+\frac{\{P \wedge b\} \; c \; \{P\}}{\{P\} \; \texttt{while } b \texttt{ do } c \; \{P \wedge \neg b\}}
+\]
+\\ We say:
+\begin{itemize}
+\item A triple \{ P \} c \{ Q \} is \textbf{semantically valid} if $[[c]]P \subseteq Q$;
+\item It is \textbf{provable} if there exists a derivation tree with that triple as root;
+\item The proof system is \textbf{sound}: only valid triples are provable;
+\item Under certain conditions (e.g., availability of weakest preconditions), the system is also \textbf{complete}.
+\end{itemize}
+
+Multiple preconditions or postconditions may be valid for a given Hoare triple. Prefer the \emph{weakest precondition} (i.e., the most general one), and the \emph{strongest postcondition} (i.e., the most precise one), because a weakest precondition guarantees correctness for the largest possible set of initial states, making the specification more broadly applicable. A strongest postcondition ensures the most informative and constrained outcome, capturing the exact behavior of the program.
+\\It is possible to weaken preconditions thanks to \textbf{Weakest Liberal Preconditions (Dijkstra)}; given a command $c$ and a postcondition $Q$, the \emph{weakest liberal precondition} $\text{wlp}(c, Q)$ is the least restrictive condition such that:
+\begin{align*}
+\forall R. \quad {R}, c, {Q} \text{ iff } R \Rightarrow \text{wlp}(c, Q)
+\end{align*}
+Formally:
+\begin{align*}
+\text{wlp}(c, Q) = {\sigma \in \Sigma \mid [[c]]{\sigma} \subseteq Q}
+\end{align*}
+
+Hoare Logic can be extended to handle \textbf{nondeterministic computations} by introducing a richer syntax of \emph{regular commands}. These commands allow us to represent nondeterministic behavior through constructs such as choice, assumption, and iteration.
+\\ The language of regular commands $r$ includes both atomic and compound constructs:
+
+\begin{align*}
+  c &::= \texttt{skip} \mid x := a \mid b? && \text{(atomic commands)} \\
+  r &::= c \mid r_1 ; r_2 \mid r_1 + r_2 \mid r^* && \text{(compound commands)}
+\end{align*}
+
+\noindent
+The \emph{assumption} command $b?$ represents a conditional guard that blocks execution unless the Boolean expression $b$ holds. The \emph{nondeterministic choice} $r_1 + r_2$ allows either branch to be taken arbitrarily, and the \emph{iteration} operator $r^*$ denotes zero or more repetitions of $r$, following the Kleene star law:
+\[
+r^* \equiv \texttt{skip} + r ; r^*
+\]
+
+The extension of Hoare Logic with nondeterminism allows reasoning about programs that do not have a single predictable behavior. This is essential in modeling systems with inputs, concurrency, or abstract scheduling. The semantics and proof rules are designed to be conservative: for instance, in the choice rule, both branches must independently ensure the same postcondition to guarantee correctness under all possible execution paths. The iteration rule captures loops via invariant reasoning, in a style reminiscent of fixed-point definitions.
+
+
+
+\subsection{Incorrectness Logic}
+
+Incorrectness Logic (IL) is a logic that complements Hoare Logic by focusing on the detection of program errors and the certification of incorrectness. While Hoare Logic is used to prove that programs behave correctly, Incorrectness Logic aims to prove that they behave \emph{incorrectly}—or more precisely, that certain erroneous states are \emph{reachable}.
+
+Aa seen, a standard Hoare triple is written as: $\{P\}~c~\{Q\}$ and expresses that if command $c$ is executed in a state satisfying $P$, and if it terminates, then the resulting state will satisfy $Q$. This implies the semantic condition: $\llbracket c \rrbracket P \subseteq Q$
+i.e., all reachable states are contained in $Q$.
+
+In contrast, an Incorrectness Logic triple is written as:
+\[
+[P]~c~[Q]
+\]
+and asserts that: \emph{any state in $Q$ is guaranteed to be reachable by executing $c$ from some state in $P$}. Semantically:
+\[
+\llbracket c \rrbracket P \supseteq Q
+\]
+i.e., the postcondition $Q$ \emph{under-approximates} the set of reachable states. This distinction makes IL particularly useful for bug-finding and validation of counterexamples.
+\\Incorrectness Logic is based on \textbf{}{under-approximation}: it guarantees that all the post-states in $Q$ are reachable from some state in $P$, but it does not require completeness over all executions. This is complementary to Hoare Logic, which relies on \emph{over-approximation}.
+\\ Incorrectness Logic and Hoare Logic can be used together under the following principles:
+
+\begin{itemize}
+  \item \textbf{Principle of Agreement}: If an IL triple $[P']~c~[Q']$ is valid, and $P' \Rightarrow P$, and the HL triple $\{P\}~c~\{Q\}$ is valid, then $Q' \Rightarrow Q$. This shows that IL and HL can reinforce each other—any postcondition found via IL must be consistent with correctness guarantees from HL.
+  \item \textbf{Principle of Denial}: If $[P']~c~[Q']$ is valid, $P' \Rightarrow P$ and $Q' \not\Rightarrow Q$, then the HL triple $\{P\}~c~\{Q\}$ is not valid. This provides a counterexample to correctness.
+\end{itemize}
+We say that an Incorrectness Logic triple $[P]~c~[Q]$ is:
+
+\begin{itemize}
+  \item \textbf{Valid} if $\llbracket c \rrbracket P \supseteq Q$; that is, every state in $Q$ is reachable from $P$.
+  \item \textbf{Sound} if every provable triple is valid. IL is sound.
+  \item \textbf{Complete} if every valid triple is provable. IL is complete relative to the assertion language and semantic model.
+\end{itemize}
+IL uses the same language and semantic domains as Hoare Logic. The assertion language includes Boolean expressions and quantifiers. 
+\paragraph{Reasoning Style.}
+Incorrectness Logic is especially suited for proving that specific erroneous outcomes are possible. It is scalable, modular, and particularly helpful for:
+\begin{itemize}
+  \item reasoning about partial program executions,
+  \item counterexample generation,
+  \item supporting debugging and bug detection.
+\end{itemize}
+
+IL lets us deliberately \emph{drop execution paths} (e.g., in nondeterministic branches or loop iterations) so long as we retain at least one valid path to the postcondition. This contrasts with Hoare Logic, where we must account for all execution paths.
+
+\subsection{Separation Logic}
+
+Separation Logic (SL) is a logic for reasoning about programs that manipulate pointers and dynamic memory allocation. 
+It extends Hoare Logic with a new operator, the separating conjunction \(\ast\), which allows reasoning about disjoint parts of the heap.
+
+\ie \(P_1 \ast P_2\)
+means that we have two disjoint subheaps, one satisfying \(P_1\) and the other satisfying \(P_2\).
+
+The local axioms of SL are the following:
+
+\textbf{(read)} 
+\[
+\frac{}{\{y\mapsto v\}\ x:=[y]\ \{x=v\wedge y\mapsto v\}}
+\]
+
+\textbf{(write)} 
+\[
+\frac{}{\{x\mapsto \_\}\ [x]:=y\ \{x\mapsto y\}}
+\]
+
+\textbf{(allocation)} 
+\[
+\frac{}{\{emp\}\ x:=alloc()\ \{x\mapsto \_\}}
+\]
+
+\textbf{(deallocation)} 
+\[
+\frac{}{\{x\mapsto \_\}\ free(x)\ \{emp\}}
+\]
+
+These axioms are called local because they only specify preconditions and postconditions for the used part of the memory. All others can be added via the Frame rule, which is the core of SL. The Frame rule allows us to extend a local proof to a larger context by embedding the proof of a small part of a program within a bigger heap, as long as the additional parts of the heap remain unaffected.
+
+\textbf{(Frame rule)} 
+\begin{align*}
+    \frac{\{P\}\ r\ \{Q\}}{\{P\ast R\}\ r\ \{Q\ast R\}}mod(r)\cap fv(R)=\emptyset
+\end{align*}
+A program that executes safely in a small state (satisfying \(P\)), can also execute in any bigger state (satisfying \(P\ast R\)) and its execution will not affect the additional part of the state (and so \(R\) will remain true in the postcondition).
+The side condition of the rule states that the command \(r\) should not modify the free variables in \(R\).
+
+\paragraph{Incompleteness}
+One known limitation of SL is its incompleteness: there exists valid SL triples that are not provable.
+
+In fact we cannot find a derivation for the following triple:
+\[
+\{y\mapsto\_\ast x\mapsto\_\}(false?;x:=[y])+(true?;skip)\{y\mapsto\_\ast x\mapsto\_\}
+\]
+We can't apply the Frame rule since $x\in mod(r)$, but the branch modifying $x$ is actually not reachable.
+
+\subsection{Incorrectness Separation Logic}
+Incorrectness Separation Logic (ISL) is a formal system designed to reason about the potential incorrect behaviors of programs, particularly those that manipulate memory. It combines principles from both Incorrectness Logic (IL), which focuses on under-approximate reasoning about program errors, and Separation Logic (SL), which provides tools to reason locally about memory and heap-manipulating code.
+
+Just as in Separation Logic, Incorrectness Separation Logic includes a frame rule that enables reasoning about programs operating on disjoint memory regions. The frame rule in ISL is stated as follows:
+\begin{align*}
+    \frac{[P]\ r\ [\epsilon: Q]}{[P\ast R]\ r\ [\epsilon: Q\ast R]}mod(r)\cap fv(R)=\emptyset
+\end{align*}
+
+The core of ISL consists of local axioms that specify the behavior of simple commands. These axioms reflect both successful execution (\texttt{ok}) and erroneous behavior (\texttt{er}).
+\\\\
+\textbf{(write)} 
+\[
+\frac{}{[x\mapsto v]\ [x]:=y\ [ok:x\mapsto y]}
+\]
+
+\[
+\frac{}{[x=nil]\ [x]:=y\ [er:x=nil]}
+\]
+
+\textbf{(read)} 
+\[
+\frac{}{[y\mapsto v]\ x:=[y]\ [ok:x=v\wedge y\mapsto v]}
+\]
+
+\[
+\frac{}{[y=nil]\ x:=[y]\ [er:y=nil]}
+\]
+
+\textbf{(allocation)} 
+\[
+\frac{}{[x\doteq x']\ x:=alloc()\ [ok:x\mapsto \_]}
+\]
+The precondition indicates that $x'$ is the old value of $x$ before the assignment.
+\\\\
+\textbf{(deallocation)} 
+\[
+\frac{}{[x\mapsto v]\ free(x)\ [ok:x\not\mapsto]}
+\]
+The postcondition uses $x\not\mapsto$ to track the deallocated locations, this way resources cannot shrink, preserving the soundness of the Frame rule.
+
+\[
+\frac{}{[x=nil]\ free(x)\ [er:x=nil]}
+\]
+\\\\
+\paragraph{Incompleteness}
+Incorrectness Separation Logic, like Separation Logic, also suffers from incompleteness: there exists valid ISL triples that are not provable.
+
+For example if we take the following valid ISL triple
+\[
+[y\mapsto v]\ x:=alloc();free(y);x:=[y]\ [y\not\mapsto\ast x\mapsto\_]
+\]
+we cannot find a derivation.
 
 \section{Symbolic execution}
 
