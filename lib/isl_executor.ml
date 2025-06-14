@@ -105,29 +105,31 @@ let choice_rule ?(interactive = true) (s : Executor_state.t) p1 p2 =
   (* Handles user's input*)
   let rec get_input_choice_rule p1 p2 =
     (* Printing message to the user *)
-    Stdio.Out_channel.print_endline "Non-det choice between:\n- left_path:";
+    Stdio.Out_channel.print_string "Non-det choice between:\n- left_path:";
     PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Prog.pretty p1);
-    Stdio.Out_channel.print_endline "\n- right_path:";
+    Stdio.Out_channel.print_string "\n- right_path:";
     PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Prog.pretty p2);
     Stdio.Out_channel.print_endline
       "\n\
-       Input 'LF' for selecting the left path, 'RT' for the right path, 'BT' \
-       for doing both and 'RN' for choosing at random (default is 'RN').";
+       1 - Input '1' for selecting the left path\n\
+       2 - Input '2' for the right path\n\
+       3 - Input '3'for both\n\
+       4 - Input '4' for choosing at random";
 
     (* Getting user's choice from stdin *)
     let user_choice =
-      In_channel.input_line In_channel.stdin |> Option.value ~default:"RN"
+      Stdio.Out_channel.print_endline "Input (default is '4'):";
+      In_channel.input_line In_channel.stdin
+      |> Option.value ~default:"4" |> Int.of_string_opt
+      |> Option.value ~default:4
     in
 
     (* Going through the selected path *)
     match user_choice with
-    | "LF" -> 0
-    | "RT" -> 1
-    | "BT" -> 2
-    | "RN" -> Random.int 3
+    | 1 | 2 | 3 -> user_choice - 1
+    | 4 -> Random.int 3
     | _ ->
-        Stdio.Out_channel.output_string Stdio.stdout
-          "Invalid input, retrying...";
+        Stdio.Out_channel.print_endline "\nInvalid input, retrying...";
         get_input_choice_rule p1 p2
   in
 
@@ -147,13 +149,12 @@ let choice_rule ?(interactive = true) (s : Executor_state.t) p1 p2 =
 let iter_rule exec ( let* ) s p =
   let rec get_input_iter_rule p =
     (* Getting the number of iterations *)
-    Stdio.Out_channel.print_endline "Given `p`:";
+    Stdio.Out_channel.print_string "Given `p`:";
     PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Prog.pretty p);
     Stdio.Out_channel.print_endline
       "\n\
-       Choose how many iterations of `p` you want to unroll, invalid inputs \
-       will be threated as the default value '7'\n\
-       Input : ";
+       Choose how many iterations of `p` you want to unroll\n\
+       Input (default is '7'): ";
     let num_iter =
       In_channel.input_line In_channel.stdin
       |> Option.value ~default:"7" |> Int.of_string_opt
@@ -162,17 +163,17 @@ let iter_rule exec ( let* ) s p =
 
     (* Getting the preference of unroll *)
     Stdio.Out_channel.print_endline
-      "Type 'only' returning only the states after the `n` iterations have \
-       been executed\n\
-       Type 'all' for returning all the states computed in-between\n\
-       The default value is 'only'\n\
-       Input :";
+      "1 - Return only the states after the `n` iterations have been executed\n\
+       2 - Return all the states computed in-between\n\
+       Input (default is '1'):";
     let user_choice =
-      In_channel.input_line In_channel.stdin |> Option.value ~default:"only"
+      In_channel.input_line In_channel.stdin
+      |> Option.value ~default:"1" |> Int.of_string_opt
+      |> Option.value ~default:1
     in
     match user_choice with
-    | "only" -> (num_iter, false)
-    | "all" -> (num_iter, true)
+    | 1 -> (num_iter, false)
+    | 2 -> (num_iter, true)
     | _ ->
         Stdio.Out_channel.print_endline "Invalid input, retrying...";
         get_input_iter_rule p
