@@ -257,7 +257,7 @@ Incorrectness Logic is especially suited for proving that specific erroneous out
 
 IL lets us deliberately \emph{drop execution paths} (e.g., in nondeterministic branches or loop iterations) so long as we retain at least one valid path to the postcondition. This contrasts with Hoare Logic, where we must account for all execution paths.
 
-\subsection{Separation Logic}
+\subsection{Separation Logic} \label{SL}
 
 Separation Logic (SL) is a logic for reasoning about programs that manipulate pointers and dynamic memory allocation. 
 It extends Hoare Logic with a new operator, the separating conjunction \(\ast\), which allows reasoning about disjoint parts of the heap.
@@ -303,9 +303,10 @@ In fact we cannot find a derivation for the following triple:
 \[
 \{y\mapsto\_\ast x\mapsto\_\}(false?;x:=[y])+(true?;skip)\{y\mapsto\_\ast x\mapsto\_\}
 \]
+
 We can't apply the Frame rule since $x\in mod(r)$, but the branch modifying $x$ is actually not reachable.
 
-\subsection{Incorrectness Separation Logic}
+\subsection{Incorrectness Separation Logic} \label{ISL}
 Incorrectness Separation Logic (ISL) is a formal system designed to reason about the potential incorrect behaviors of programs, particularly those that manipulate memory. It combines principles from both Incorrectness Logic (IL), which focuses on under-approximate reasoning about program errors, and Separation Logic (SL), which provides tools to reason locally about memory and heap-manipulating code.
 
 Just as in Separation Logic, Incorrectness Separation Logic includes a frame rule that enables reasoning about programs operating on disjoint memory regions. The frame rule in ISL is stated as follows:
@@ -357,6 +358,52 @@ For example if we take the following valid ISL triple
 [y\mapsto v]\ x:=alloc();free(y);x:=[y]\ [y\not\mapsto\ast x\mapsto\_]
 \]
 we cannot find a derivation.
+
+\subsection{Dummy variables}
+One of the principles of SL and ISL is the locality. This means that the logic is capable of analyzing code sections regardless of the general state of the whole program. If we look into the incompleteness example of Section \ref{SL} we could argue that it represents a failure of the locality principle, since the rule is invalid due to some commands that will never be executed. But notice that if we somehow had a better way to keep track set of which variables were edited, the rule would be valid. Seeking this more precise set of modified variables, dummy variables were proposed.
+
+Unlike program variables, which are directly manipulated by program commands, dummy variables are introduced only in the assertion language. Their core property is immutability, and once instantiated, their values remain fixed. This stability allows them to express conditions related to the initial or expected values of the program variables. So, a new shorthand assertion \(emp_x\) analogous to the classical \(\mathsf{emp}\) predicate was introduced. However, instead of asserting an empty heap, \(emp_x\) imposes that aside from the heap beeing empty, there also exists a corresponding dummy variable \(x'\) for each program variable \(x \in X\).
+
+\[
+empx \triangleq \bigwedge_{x \in X} \exists x'.\ x = x'
+\]
+
+Dummy variables are particularly useful in the context of framing. When dealing with separation logic, we noticed that we may need to frame over memory fragments that refer only to unmodifiable entities (e.g., disallowing references to variables that might be modified). By referring only to dummy variables, frames can provide constraints over unaccessible states, which is essential for preserving locality in the presence of heap-manipulating commands. Moreover, their presence in either preconditions or postconditions, but not both, guarantees that the program variable was not modified over the execution.
+
+Using the new \(emp_x\) assertion in the incompleteness example of Section \ref{SL}, we may now derive the tuple that was not possible to be derved in Separation Logic.
+
+
+\[
+\inferrule*[Right=\textsc{Frame}]
+      {%
+        \inferrule*[Right=\textsc{Choice}]
+          {%
+            % ----- left branch:  false? ; x := [y] -----------------
+            \inferrule*
+              {\,}
+              {\triple{\empX}{\textbf{false?}\;;\;x := [y]}{\bot}}
+            \quad
+            % ----- right branch:  true? ; skip ---------------------
+            \inferrule*
+              {\,}
+              {\triple{\empX}{\textbf{true?}\;;\;\textbf{skip}}{\empX}}
+          }
+          {\triple{\empX}{\cmd}{\empX}}
+      }
+      {\triple{\empX * y\mapsto{\_} * x\mapsto{\_}}{\cmd}{\empX * y\mapsto{\_} * x\mapsto{\_}}}
+\]
+
+
+\subsection{SL+ and ISL+}
+
+The ``+'' variants, SL+ and ISL+, are extensions of their classical counterpart systems. The main difference between SL, ISL and their plus versions is the usage of dummy variables to keep track of modified variables. Instead of requiring that frame assertions do not mention variables modified by the program, SL+ and ISL+ allow framed assertions to only mention dummy variables. This condition permits more powerful and complete derivations by ensuring that only variables that were changed are excluded from frames.
+
+Because SL and ISL differ in approximation style, the effect of these changes differs accordingly. SL+ improves partial-correctness reasoning by enabling stronger postconditions. ISL+, on the other hand, improve bug-finding capabilities. Under-approximate rules like allocation, load, and free can now be used even when framing memory that overlaps with modified state, as long as that memory is referred to only through dummy variables. This removes some restrictions that previously blocked a few proofs.
+
+In summary, SL+ and ISL+ retain the core reasoning of their classical counterparts, over- and under-approximate separation logic, while expanding expressiveness. By introducing dummy variables and a semantics-driven frame rule, the ``+'' variants enable richer assertions, better locality, and overall a more complete and modular proof systems for both correctness and incorrectness reasoning in heap-manipulating programs.
+
+
+
 
 \section{Symbolic execution}
 
@@ -709,43 +756,43 @@ The more complex tokens are handled as follows:
 The list of remaning valid tokens is the following:
 \begin{multicols}{3} % Adjust number of columns as needed
 \begin{itemize}
-\item \texttt{LPAREN} : \texttt{(}
-\item \texttt{RPAREN} : \texttt{)}
-\item \texttt{LBRACE} : \texttt{\{}
-\item \texttt{RBRACE} : \texttt{\}}
-\item \texttt{PLUS} : \texttt{+}
-\item \texttt{MINUS} : \texttt{-}
-\item \texttt{MULT} : \texttt{**} | \texttt{×}
-\item \texttt{DIV} : \texttt{/}
-\item \texttt{MOD} : \texttt{\%}
-\item \texttt{BOOL(true)} : \texttt{true} | \texttt{⊤}
-\item \texttt{BOOL(false)} : \texttt{} | \texttt{⊥}
-\item \texttt{OR} : \texttt{||} | \texttt{∨}
-\item \texttt{AND} : \texttt{\&\&} | \texttt{∧}
-\item \texttt{NOT} : \texttt{!} | \texttt{¬}
-\item \texttt{LT} : \texttt{<}
-\item \texttt{LE} : \texttt{<=} | \texttt{≤}
-\item \texttt{GT} : \texttt{>}
-\item \texttt{GE} : \texttt{>=} | \texttt{≥}
-\item \texttt{EQ} : \texttt{=}
-\item \texttt{NEQ} : \texttt{!=} | \texttt{<>} | \texttt{≠}
-\item \texttt{EMP} : \texttt{emp}
-\item \texttt{REF} : \texttt{->} | \texttt{↦}
-\item \texttt{NREF} : \texttt{!->} | \texttt{!↦} | \texttt{↦̸}
-\item \texttt{SOMETHING} : \texttt{\_}
-\item \texttt{EXIST} : \texttt{exists} | $\exists$
-\item \texttt{SEP} : \texttt{*} | \texttt{∗}
-\item \texttt{DOT} : \texttt{.}
-\item \texttt{SEMICOLON} : \texttt{;}
-\item \texttt{SKIP} : \texttt{skip}
-\item \texttt{QUESTION} : \texttt{?}
-\item \texttt{LBRACK} : \texttt{[}
-\item \texttt{RBRACK} : \texttt{]}
-\item \texttt{ASSIGN} : \texttt{:=} | \texttt{←}
-\item \texttt{ALLOC} : \texttt{alloc}
-\item \texttt{FREE} : \texttt{free}
-\item \texttt{ERROR} : \texttt{error}
-\item \texttt{STAR} : \texttt{star} | \texttt{⋆}
+\item LPAREN = \texttt{(}
+\item RPAREN = \texttt{)}
+\item LBRACE = \texttt{\{}
+\item RBRACE = \texttt{\}}
+\item PLUS = \texttt{+}
+\item MINUS = \texttt{-}
+\item MULT = \texttt{**} | \texttt{×}
+\item DIV = \texttt{/}
+\item MOD = \texttt{\%}
+\item BOOL(true) = \texttt{true} | \texttt{⊤}
+\item BOOL(false) = \texttt{} | \texttt{⊥}
+\item OR = \texttt{||} | \texttt{∨}
+\item AND = \texttt{\&\&} | \texttt{∧}
+\item NOT = \texttt{!} | \texttt{¬}
+\item LT = \texttt{<}
+\item LE = \texttt{<=} | \texttt{≤}
+\item GT = \texttt{>}
+\item GE = \texttt{>=} | \texttt{≥}
+\item EQ = \texttt{=}
+\item NEQ = \texttt{!=} | \texttt{<>} | \texttt{≠}
+\item EMP = \texttt{emp}
+\item REF = \texttt{->} | \texttt{↦}
+\item NREF = \texttt{!->} | \texttt{!↦} | \texttt{↦̸}
+\item SOMETHING = \texttt{\_}
+\item EXIST = \texttt{exists} | $\exists$
+\item SEP = \texttt{*} | \texttt{∗}
+\item DOT = \texttt{.}
+\item SEMICOLON = \texttt{;}
+\item SKIP = \texttt{skip}
+\item QUESTION = \texttt{?}
+\item LBRACK = \texttt{[}
+\item RBRACK = \texttt{]}
+\item ASSIGN = \texttt{:=} | \texttt{←}
+\item ALLOC = \texttt{alloc}
+\item FREE = \texttt{free}
+\item ERROR = \texttt{error}
+\item STAR = \texttt{star} | \texttt{⋆}
 \end{itemize}
 \end{multicols}
 
@@ -764,9 +811,9 @@ The principal parsed AST types are:
   
   \item \texttt{Prop.t}: a proposition. It can be either an atomic one, the conjunction or disjunction between two proposition, or an existentially quantified proposition (i.e. $\exists x. prop$).
   
-  \item \texttt{Cmd.t}: a command. It could be $skip$, a boolean assertion, an assignement to an arithmetic expression, a store, a load, an allocation, a deallocation, or \texttt{error}.
+  \item \texttt{Cmd.t}: a command. It could be $skip$, a boolean assertion, an assignemnt to an arithmetic expression, a store, a load, an allocation, a deallocation, or \texttt{error}.
   
-  \item \texttt{Prog.t}: a program. It could be a command, the non-deterministic choice between two commands, the Kleene star, or the sequential composition of two or more programs. Note that a program in our syntax can either end with a semicolon or not.
+  \item \texttt{Prog.t} a program. It could be a command, the non-deterministic choice between two commands, the Kleene star, or the sequential composition of two or more programs. Note that a program in our syntax can either end with a semicolon or not.
 \end{enumerate}
 Finally, a well-formed input file has the shape \verb|{ P } C|, where \texttt{P} is a proposition (\texttt{Prop.t}) and \texttt{C} is a program (\texttt{Prog.t}).
 
@@ -777,7 +824,7 @@ Finally, the executor is invoked with the simplified precondition and the corres
 During execution, the application continuously displays the current command being executed along with the executor’s state.
 
 \subsection{ISL+ user's interaction}
-When executing an \textit{Incorrectness Separation Logic+} triple, the front-end offers some degree of interaction depending on the rule being applied:
+When executing an \textit{Incorrectness Separation Logic+} triple, the front-end offers some degree of interactiondepending on the rule being applied:
 
 \begin{itemize}
   \item \texttt{Allocation:} three allocation strategies are available:
@@ -793,6 +840,23 @@ When executing an \textit{Incorrectness Separation Logic+} triple, the front-end
       \item Only consider the states resulting after the $n$ iterations.
     \end{itemize}
 \end{itemize}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 \section{Examples}
 
