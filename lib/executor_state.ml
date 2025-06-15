@@ -355,20 +355,20 @@ let dummy_dismantler (post : t) =
         match atom with
         | Const _ ->
             (* It has no dummies, add atom to matched_atoms *)
-            { acc with path_cond = atom :: acc.path_cond }
+            { acc with path_cond = atom :: acc.matched_atoms }
         | Cmp (_, a1, a2) ->
-            (* If at least a1 or a2 is a dummy in S -> 
-                      add atom to matched atoms 
+            (* - If at least a1 or a2 is a dummy in S -> 
+                      add atom to matched_atoms 
                       && add all dummies of atom in S
-             Otherwise put atom in path_cond *)
+               - Otherwise put atom in path_cond *)
             let check_dummy (a : Aexp.t) status () =
-              let found, set = status in
+              let is_found, set = status in
               match a with
               | Var dummy ->
-                  if found then (true, Set.add set dummy)
+                  if is_found then (true, Set.add set dummy)
                   else if Set.mem set dummy then (true, set)
                   else (false, set)
-              | _ -> (found, set)
+              | _ -> (is_found, set)
             in
             let status' = check_dummy a1 (false, acc.set) () in
             let found'', set'' = check_dummy a2 status' () in
@@ -380,8 +380,8 @@ let dummy_dismantler (post : t) =
               }
             else { acc with path_cond = atom :: acc.path_cond })
   in
-  (* Repeat scan_path_condition until the returned the returned set = input set 
-    When exiting return Record.matched_atoms*)
+  (* Repeat scan_path_condition until the returned set equals the one gave in 
+     input. When exiting return only the resulting matched_atoms *)
   let rec solution (r : Result.t) =
     let r' = scan_path_condition r in
     if Set.equal r.set r'.set then r'.matched_atoms else solution r'
