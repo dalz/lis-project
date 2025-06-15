@@ -326,6 +326,69 @@ let abstract_join_path_cond ~ensure_equal s t =
           else Stop []
       | None -> Continue p)
 
+(** Removes noises in the postcondition*)
+let dummy_dismantler (post : t) =
+  (* Creates the set of all dummy variables available *)
+  let dummy_set =
+    Base.Map.fold post.dummies
+      ~init:(Set.empty (module Dummy))
+      ~f:(fun ~key:_ ~data acc -> Set.add acc data)
+  in
+
+  (* for each atom in path_condition:
+      - if atom has at least a dummy in S or no dummy, remove it from 
+        path_condition and move it in another list. 
+        All dummies of atom must be added on S .
+      - otherwise don't do nothing with atom.
+      *)
+  let module Result = struct
+    type t = {
+      set : (Dummy.t, Dummy.comparator_witness) Base.Set.t;
+      path_cond : Path_cond.t;
+      matched_atoms : Path_cond.t;
+    }
+  end in
+  let scan_path_condition (r : Result.t) : Result.t =
+    List.fold r.path_cond
+      ~init:Result.{ r with path_cond = [] }
+      ~f:(fun acc atom ->
+        match atom with
+        | Const _ ->
+            (* It has no dummies, add atom to matched_atoms *)
+            { acc with path_cond = atom :: acc.path_cond }
+        | Cmp (_, a1, a2) ->
+            (* If at least a1 or a2 is a dummy in S -> 
+                      add atom to matched atoms 
+                      && add all dummies of atom in S
+             Otherwise put atom in path_cond *)
+            let check_dummy (a : Aexp.t) status () =
+              let found, set = status in
+              match a with
+              | Var dummy ->
+                  if found then (true, Set.add set dummy)
+                  else if Set.mem set dummy then (true, set)
+                  else (false, set)
+              | _ -> (found, set)
+            in
+            let status' = check_dummy a1 (false, acc.set) () in
+            let found'', set'' = check_dummy a2 status' () in
+            if found'' then
+              {
+                acc with
+                set = set'';
+                matched_atoms = atom :: acc.matched_atoms;
+              }
+            else { acc with path_cond = atom :: acc.path_cond })
+  in
+  (* Repeat scan_path_condition until the returned the returned set = input set 
+    When exiting return Record.matched_atoms*)
+  let rec solution (r : Result.t) =
+    let r' = scan_path_condition r in
+    if Set.equal r.set r'.set then r'.matched_atoms else solution r'
+  in
+  solution
+    Result.{ set = dummy_set; path_cond = post.path_cond; matched_atoms = [] }
+
 let heap_equal_up_to_dummies s t =
   let filter_heap u =
     Map.fold u.dummies ~init:[] ~f:(fun ~key:_ ~data:x' h ->
