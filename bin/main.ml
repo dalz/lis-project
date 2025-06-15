@@ -13,8 +13,8 @@ let anon_fun filename = input_file := filename
 
 let speclist =
   [
-    ("--isl", Stdlib.Arg.Set force_isl, "Uses isl");
-    ("--sl", Stdlib.Arg.Set force_sl, "Uses sl");
+    ("--isl", Stdlib.Arg.Set force_isl, "Force use of isl+");
+    ("--sl", Stdlib.Arg.Set force_sl, "Force use of sl+");
     ( "--step-exec",
       Stdlib.Arg.Set step_exec,
       "Execute the derivation step by step" );
@@ -38,18 +38,18 @@ let _parse ch =
   let lexbuf = Lexing.from_channel ch in
   try Parser.input Lexer.read lexbuf
   with Parser.Error ->
-    Out_channel.fprintf stderr "%a: syntax error\n" print_position lexbuf;
+    Out_channel.fprintf stderr "%a: Syntax error\n" print_position lexbuf;
     Stdlib.exit (-1)
 
 let step_by_step s (c : Cmd.t) =
   let separator = "=========================" in
-  Stdio.Out_channel.print_endline separator;
-  Stdio.Out_channel.print_string "current command :";
-  PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Cmd.pretty c);
-  Stdio.Out_channel.print_endline "";
-  Stdio.Out_channel.print_endline separator;
-
   if not !no_verbose then (
+    Stdio.Out_channel.print_endline separator;
+    Stdio.Out_channel.print_string "Current command : ";
+    PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Cmd.pretty c);
+    Stdio.Out_channel.print_endline "";
+    Stdio.Out_channel.print_endline separator;
+
     print (Executor_state.pretty s);
     if !step_exec then
       let quit_loop = ref false in
