@@ -54,6 +54,8 @@ let step_by_step s (c : Cmd.t) =
     if !step_exec then
       let quit_loop = ref false in
       while not !quit_loop do
+        Out_channel.print_string "n/c> ";
+        Out_channel.flush Out_channel.stdout;
         let str = Stdlib.read_line () in
         if not (String.equal str "") then
           if Char.equal str.[0] 'n' then quit_loop := true
@@ -78,13 +80,14 @@ let () =
   Stdlib.Arg.parse speclist anon_fun usage_msg;
   let fname = !input_file in
   let exec =
-    if !force_isl then Isl_executor.exec
+    if !force_isl then Isl_executor.exec ~interactive:!step_exec
     else if !force_sl then Sl_executor.exec
     else if String.equal (Stdlib.Filename.extension fname) ".isl" then
-      Isl_executor.exec
+      Isl_executor.exec ~interactive:!step_exec
     else if String.equal (Stdlib.Filename.extension fname) ".sl" then
       Sl_executor.exec
-    else if not (String.equal fname "") then failwith "Extension of input file should be .isl or .sl"
+    else if not (String.equal fname "") then
+      failwith "Extension of input file should be .isl or .sl"
     else failwith "To read program from stdin you must specify --sl or --isl"
   in
 
@@ -92,18 +95,18 @@ let () =
     if
       (* If fname is empty read program from stdin *)
       String.equal fname ""
-    then (
+    then
       let pr = get_lines "" 0 2 in
       let lexbuf = Lexing.from_string pr in
-      Parser.input Lexer.read lexbuf)
+      Parser.input Lexer.read lexbuf
     else
       In_channel.with_file fname ~f:(fun ch ->
           let lexbuf = Lexing.from_channel ch in
           Parser.input Lexer.read lexbuf)
   in
 
- (* Prop.show pre |> Out_channel.print_endline;*)
- (* Prog.show prog |> Out_channel.print_endline;*)
+  (* Prop.show pre |> Out_channel.print_endline;*)
+  (* Prog.show prog |> Out_channel.print_endline;*)
   let prog_vars =
     let ps, ds = Prog.fv prog in
     List.map ps ~f:Dummy.raw_of_ide @ ds

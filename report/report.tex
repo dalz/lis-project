@@ -733,8 +733,13 @@ To simplify an executor state we first invoke the path condition simplification 
 We also have a few more basic procedures for other types, such as the AST produced from reading the user's precondition and from the final list of executor states.
 
 \section{Front-end}
-Users can run the project using the command \texttt{dune exec lis-project path\_to\_file},
-providing as argument the path to a file containing the content to execute.
+Users can compile and run the project with the following commands:
+\begin{verbatim}
+  $ opam install . --deps-only
+  $ dune build
+  $ _build/default/main.exe [--sl|--isl] [--step-exec] [--no-verbose] <file>
+\end{verbatim}
+
 A valid input file must specify a precondition and a program, adhering to the following standard structure:
 
 \begin{minted}{text}
@@ -858,7 +863,7 @@ When executing an \textit{Incorrectness Separation Logic+} triple, the front-end
     \end{itemize}
 \end{itemize}
 
-
+This behavior is enabled with the \texttt{--step-exec} flag.
 
 
 
