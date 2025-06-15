@@ -327,7 +327,7 @@ let abstract_join_path_cond ~ensure_equal s t =
       | None -> Continue p)
 
 (** Removes noises in the postcondition*)
-let dummy_dismantler (post : t) =
+let dummy_dismantler (post : t) : t =
   (* Creates the set of all dummy variables available *)
   let dummy_set =
     Base.Map.fold post.dummies
@@ -384,7 +384,8 @@ let dummy_dismantler (post : t) =
      input. When exiting return only the resulting matched_atoms *)
   let rec solution (r : Result.t) =
     let r' = scan_path_condition r in
-    if Set.equal r.set r'.set then r'.matched_atoms else solution r'
+    if Set.equal r.set r'.set then { post with path_cond = r'.matched_atoms }
+    else solution r'
   in
   solution
     Result.{ set = dummy_set; path_cond = post.path_cond; matched_atoms = [] }

@@ -195,7 +195,7 @@ let iter_rule ~interactive exec ( let* ) s p =
   unroll s num_iter []
 
 (** TODO Add a better description*)
-let exec ~on_step ~interactive s p =
+let exec ?(denoise = true) ~on_step ~interactive s p =
   Executor.exec
     {
       bind;
@@ -206,6 +206,10 @@ let exec ~on_step ~interactive s p =
     }
     s p
   |> List.map ~f:(function
-       | Ok s -> Ok (Executor_state.to_prop s)
+       | Ok s ->
+           let post =
+             if denoise then Executor_state.dummy_dismantler s else s
+           in
+           Ok (Executor_state.to_prop post)
        | Err s -> Err s
        | Stuck s -> Stuck s)

@@ -1,4 +1,5 @@
 val exec :
+  ?denoise:bool ->
   on_step:(Executor_state.t -> Cmd.t -> unit) ->
   interactive:bool ->
   Executor_state.t ->

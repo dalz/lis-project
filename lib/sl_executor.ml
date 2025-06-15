@@ -31,11 +31,16 @@ let reduce_until_exn ~f = function
   | [ x ] -> x
   | [] -> failwith "reduce_until_exn applied to empty list"
 
-let exec ~on_step s p =
+let exec ?(denoise = true) ~on_step s p =
   match
     Executor.exec { bind; on_step; alloc_rule; choice_rule; iter_rule } s p
     |> List.map ~f:(function
-         | Ok s -> Ok (Executor_state.to_prop s)
+         | Ok s ->
+             Ok
+               (let post =
+                  if denoise then Executor_state.dummy_dismantler s else s
+                in
+                Executor_state.to_prop post)
          | (Err _ | Stuck _) as s -> s)
   with
   | [] -> []
