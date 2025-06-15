@@ -5,6 +5,7 @@
 \usepackage{multicol}
 \usepackage{stmaryrd}
 
+
 \usepackage{fontspec}
 \usepackage[warnings-off={mathtools-colon,mathtools-overbracket}]{unicode-math}
 \defaultfontfeatures{Ligatures=TeX}
@@ -29,3 +30,15 @@
 \DeclareMathOperator*{\bigast}{\scalerel*{\ast}{\sum}}
 
 \usepackage[hidelinks,unicode]{hyperref}
+
+
+% --- packages --------------------------------------------------
+\usepackage{amsmath,amssymb}   % basic maths
+\usepackage{mathpartir}        % proof trees (\inferrule)
+
+% --- handy macros ----------------------------------------------
+\newcommand{\triple}[3]{\{#1\}\;#2\;\{#3\}}     % {P} c {Q}
+\newcommand{\empX}{\mathsf{emp}_{X}}          % emp_Xp
+\newcommand{\cmd}{%
+  \textbf{false?}\;;\;x := [y]\;+\;
+  \textbf{true?}\;;\;\textbf{skip}}              % whole command

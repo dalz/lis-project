@@ -21,7 +21,7 @@
 \maketitle
 
 \begin{abstract}
-  We present a tool to compute SL+ and ISL+ postconditions.
+  We present VeriDum, a tool that computes SL+ and ISL+ postconditions for a simple nondeterministic imperative calculus. We start by introducing the target logics, then we outline VeriDum's implementation and demonstrate its operation with some examples.
 \end{abstract}
 
 \section{Introduction and Semantics Background}
@@ -257,7 +257,7 @@ Incorrectness Logic is especially suited for proving that specific erroneous out
 
 IL lets us deliberately \emph{drop execution paths} (e.g., in nondeterministic branches or loop iterations) so long as we retain at least one valid path to the postcondition. This contrasts with Hoare Logic, where we must account for all execution paths.
 
-\subsection{Separation Logic}
+\subsection{Separation Logic} \label{SL}
 
 Separation Logic (SL) is a logic for reasoning about programs that manipulate pointers and dynamic memory allocation. 
 It extends Hoare Logic with a new operator, the separating conjunction \(\ast\), which allows reasoning about disjoint parts of the heap.
@@ -303,9 +303,10 @@ In fact we cannot find a derivation for the following triple:
 \[
 \{y\mapsto\_\ast x\mapsto\_\}(false?;x:=[y])+(true?;skip)\{y\mapsto\_\ast x\mapsto\_\}
 \]
+
 We can't apply the Frame rule since $x\in mod(r)$, but the branch modifying $x$ is actually not reachable.
 
-\subsection{Incorrectness Separation Logic}
+\subsection{Incorrectness Separation Logic} \label{ISL}
 Incorrectness Separation Logic (ISL) is a formal system designed to reason about the potential incorrect behaviors of programs, particularly those that manipulate memory. It combines principles from both Incorrectness Logic (IL), which focuses on under-approximate reasoning about program errors, and Separation Logic (SL), which provides tools to reason locally about memory and heap-manipulating code.
 
 Just as in Separation Logic, Incorrectness Separation Logic includes a frame rule that enables reasoning about programs operating on disjoint memory regions. The frame rule in ISL is stated as follows:
@@ -358,9 +359,57 @@ For example if we take the following valid ISL triple
 \]
 we cannot find a derivation.
 
+\subsection{Dummy variables}
+One of the principles of SL and ISL is the locality. This means that the logic is capable of analyzing code sections regardless of the general state of the whole program. If we look into the incompleteness example of Section \ref{SL} we could argue that it represents a failure of the locality principle, since the rule is invalid due to some commands that will never be executed. But notice that if we somehow had a better way to keep track set of which variables were edited, the rule would be valid. Seeking this more precise set of modified variables, dummy variables were proposed.
+
+Unlike program variables, which are directly manipulated by program commands, dummy variables are introduced only in the assertion language. Their core property is immutability, and once instantiated, their values remain fixed. This stability allows them to express conditions related to the initial or expected values of the program variables. So, a new shorthand assertion \(emp_X\) analogous to the classical \(\mathsf{emp}\) predicate was introduced. However, instead of asserting an empty heap, \(emp_X\) imposes that aside from the heap being empty, there also exists a corresponding dummy variable \(x'\) for each program variable \(x \in X\).
+
+\[
+emp_X \triangleq \bigwedge_{x \in X} \exists x'.\ x = x'
+\]
+
+Dummy variables are particularly useful in the context of framing. When dealing with separation logic, we noticed that we may need to frame over memory fragments that refer only to unmodifiable entities (e.g., disallowing references to variables that might be modified). By referring only to dummy variables, frames can provide constraints over unaccessible states, which is essential for preserving locality in the presence of heap-manipulating commands. Moreover, their presence in either preconditions or postconditions, but not both, guarantees that the program variable was not modified over the execution.
+
+Using the new \(emp_X\) assertion in the incompleteness example of Section \ref{SL}, we may now derive the tuple that was not possible to be derived in Separation Logic.
+
+
+\[
+\inferrule*[Right=\textsc{Frame}]
+      {%
+        \inferrule*[Right=\textsc{Choice}]
+          {%
+            % ----- left branch:  false? ; x := [y] -----------------
+            \inferrule*
+              {\,}
+              {\triple{\empX}{\textbf{false?}\;;\;x := [y]}{\bot}}
+            \quad
+            % ----- right branch:  true? ; skip ---------------------
+            \inferrule*
+              {\,}
+              {\triple{\empX}{\textbf{true?}\;;\;\textbf{skip}}{\empX}}
+          }
+          {\triple{\empX}{\cmd}{\empX}}
+      }
+      {\triple{\empX * y\mapsto{\_} * x\mapsto{\_}}{\cmd}{\empX * y\mapsto{\_} * x\mapsto{\_}}}
+\]
+
+
+\subsection{SL+ and ISL+}
+
+The ``+'' variants, SL+ and ISL+, are extensions of their classical counterpart systems. The main difference between SL, ISL and their plus versions is the usage of dummy variables to keep track of modified variables. Instead of requiring that frame assertions do not mention variables modified by the program, SL+ and ISL+ allow framed assertions to only mention dummy variables. This condition permits more powerful and complete derivations by ensuring that only variables that were changed are excluded from frames.
+
+Because SL and ISL differ in approximation style, the effect of these changes differs accordingly. SL+ improves partial-correctness reasoning by enabling stronger postconditions. ISL+, on the other hand, improve bug-finding capabilities. Under-approximate rules like allocation, load, and free can now be used even when framing memory that overlaps with modified state, as long as that memory is referred to only through dummy variables. This removes some restrictions that previously blocked a few proofs.
+
+In summary, SL+ and ISL+ retain the core reasoning of their classical counterparts, over- and under-approximate separation logic, while expanding expressiveness. By introducing dummy variables and a semantics-driven frame rule, the ``+'' variants enable richer assertions, better locality, and overall a more complete and modular proof systems for both correctness and incorrectness reasoning in heap-manipulating programs.
+
+
+
+
 \section{Symbolic execution}
 
-Given a precondition and a program, we produce a postcondition by means of symbolic execution. The program is executed step by step, using the postcondition of a command as the precondition of the next.
+We will now describe the main components of VeriDum, starting from the executor. The code discussed here is available at \url{https://github.com/dalz/lis-project/}.
+
+Given a precondition and a program, we produce a postcondition by means of symbolic execution. The program is executed step by step, using the postcondition of each command as the precondition of the next.
 
 \subsection{Executor state}
 
@@ -372,7 +421,7 @@ During symbolic execution, the logical proposition that is currently known to ho
 \end{align*}
 \ie a single equality between each program variable and a dummy variable, the heap with possibly a chunk for each dummy variable (but not for program variables), and a path condition \(p\). The path condition is a conjunction of comparisons and boolean constants, and cannot contain program variables.
 
-In OCaml, this is implemented as (\texttt{executor\_state.ml}):
+In OCaml, this is implemented as the following type (from \texttt{executor\_state.ml}):
 \begin{minted}{ocaml}
   type heapval =
     | Val of Aexp.t (* x ↦ e *)
@@ -390,7 +439,7 @@ The motivation for keeping equalities on program variables (\ml{Ide.t}) separate
 
 The heap is represented by a map to easily identify duplicate chunks, that imply falsehood.
 
-The path condition cannot contain disjunction, as the executor state represents a single branch in the symbolic execution. Whenever a disjunction would be produced, the executor is called on the two branches with two separate states instead. Moreover, it doesn't need existential quantifiers as they are removed by the normalization procedure.
+The path condition cannot contain disjunctions, as the executor state represents a single branch in the symbolic execution. Whenever a disjunction would be produced, the executor is called on the two branches with two separate states instead. Moreover it doesn't need existential quantifiers as they are removed by the normalization procedure.
 
 \subsection{Normalization}
 
@@ -400,6 +449,8 @@ First, we rewrite the precondition to an intermediate form with the shape
 with \(A\) an atomic proposition, by distributivity rules and pushing out of existential quantifiers (\texttt{norm\_prop.ml}). Then we separate the disjunct; we will produce a distinct state for each of them. We replace all program variables with fresh dummy variables, and remember the association in the \ml{dummies} map. Finally, we extract the chunks into the \ml{heap} map and put the rest into the path condition, turning \(\ast\) into \(\wedge\) as they are equivalent in the absence of chunks.
 
 If we find two chunks for the same location in the same separating conjunct (\ie connected by \(\wedge\)), we keep only one in the \ml{heap} map and add an equality between the pointed-to values to the path condition. If we find them in the same disjunct (connected by \(\ast\)) we add false to the path condition.
+
+Once they are at the outermost level, existential quantifiers can be eliminated according to the Exists rule.
 
 \subsection{Executor status}
 
@@ -412,7 +463,7 @@ Executor states are wrapped in a monad that tracks the current status of the exe
     | Stuck of Executor_state.t
 \end{minted}
 
-The executor is parameterized over the bind operator of the status monad, to generalize over the different interpretations of errors between SL+ and ISL+.
+The executor is parameterized over the bind operator of the status monad, to generalize over SL+ and ISL+'s differing interpretations of errors.
 
 \begin{minted}{ocaml}
   (* SL+ *)
@@ -432,9 +483,9 @@ When composing two computations \(f\) and \(g\), if the \(f\) an \ml{Ok} result 
 
 \subsection{Executor}
 
-The executor is parameterized with a configuration structure, which includes the bind operator and functions implementing the rules that differ between SL+ and ISL+. It takes as input an executor state and a program, and returns a list of statuses, the possible outcomes (postconditions) of executing the program.
+The executor is parameterized by a configuration record, which includes the bind operator and functions implementing the rules that differ between SL+ and ISL+. It takes as input an executor state and a program, and returns a list of statuses, the possible outcomes (postconditions) of executing the program.
 
-At the end of the execution of the whole program, we join the postconditions with disjunctions (according to the Disj and Choice rules) in SL+, while we keep them as different possible outcomes in ISL+.
+At the end of the execution of the whole program we join the postconditions with disjunctions (according to the Disj and Choice rules) in SL+, while we keep them as different possible outcomes (derivable postconditions) in ISL+.
 
 \begin{minted}{ocaml}
   let rec exec cfg s p : Executor_state.t status list =
@@ -493,7 +544,7 @@ Assignment of an arithmetic expression \texttt{e} to a program variable \texttt{
 \item \texttt{x = x'} is added to \texttt{dummies} (possibly replacing a previous association of \texttt{x} to a dummy variable) and \texttt{x' = e'} to the path condition.
 \end{enumerate}
 
-So for each change to a program variable we introduce a new dummy variable that tracks that reflects that change. This differs from the original rules of the logic in that there the dummy variables are created on demand when needed. We instead chose an eager approach to facilitate the automated application of the frame rule.
+So for each change to a program variable we introduce a new dummy variable that reflects that change. This differs from the original rules of the logic in that there the dummy variables are created implicitly and as needed. We instead chose an eager approach to facilitate the automated application of the frame rule.
 
 \begin{minted}{ocaml}
   let assign s x e =
@@ -559,7 +610,7 @@ In SL+, \texttt{x ← alloc()} creates a new dummy variable \texttt{x'}, sets it
         }
 \end{minted}
 
-In ISL+, we can additionally reuse previously deallocated locations. Interactively we ask the user whether to do it (and which to reuse) or not). Non-interactively we always reuse the first deallocated location we find. Sample implementation without the interactive choice:
+In ISL+, we can additionally reuse previously deallocated locations. Interactively we ask the user whether to do it (and which to reuse) or not. Non-interactively we always reuse the first deallocated location we find. Sample implementation without the interactive choice:
 
 \begin{minted}{ocaml}
   let alloc_rule s x =
@@ -602,9 +653,22 @@ Unsurprisingly:
 
 This is simply a matter of executing the two programs in sequence. The bind operator takes care of errors, stuck executions, and branching (the second \ml{exec} call is applied to \emph{all} postconditions generated by the first).
 
+\begin{minted}{ocaml}
+  | Seq (p1, p2) ->
+    let* s = exec cfg s p1 in
+    cfg.on_step s;
+    exec cfg s p2
+\end{minted}
+
 \subsubsection{Choice}
 
 This rule differs between SL+ and ISL+. In the former we execute both branches, in the latter we may select either both or a single one.
+
+\begin{minted}{ocaml}
+  | Choice (p1, p2) ->
+    cfg.choice_rule s p1 p2
+    |> List.concat_map ~f:(fun (s, p) -> exec cfg s p)
+\end{minted}
 
 The SL+ implementation:
 \begin{minted}{ocaml}
@@ -641,7 +705,7 @@ we execute the loop body once, find a proposition that is valid both before and 
 
 \ml{abstract_join} performs a simple abstract interpretation of the path condition over the domain of integer bounds. For example, it interprets \(x + 1\) as \(\geq 0\) if \(x = 0\). This is enough to conclude:
 \begin{minted}{text}
-  { 0 <= x ∗ 0 <= y }  (y ← y + x)⋆  { y >= 0 }
+  { 0 ≤ x ∗ 0 ≤ y }  (y ← y + x)⋆  { 0 ≤ y }
 \end{minted}
 
 We don't support invariants involving changes to the heap; if the heap is modified in the loop, we use true as the invariant.
@@ -669,8 +733,13 @@ To simplify an executor state we first invoke the path condition simplification 
 We also have a few more basic procedures for other types, such as the AST produced from reading the user's precondition and from the final list of executor states.
 
 \section{Front-end}
-Users can run the project using the command \texttt{dune exec lis-project path\_to\_file},
-providing as argument the path to a file containing the content to execute.
+Users can compile and run the project with the following commands:
+\begin{verbatim}
+  $ opam install . --deps-only
+  $ dune build
+  $ _build/default/main.exe [--sl|--isl] [--step-exec] [--no-verbose] <file>
+\end{verbatim}
+
 A valid input file must specify a precondition and a program, adhering to the following standard structure:
 
 \begin{minted}{text}
@@ -684,10 +753,10 @@ indicating whether they should be executed using
 \textit{Separation Logic+} or \textit{Incorrectness Separation Logic+}.
 
 
-\subsection{Staring the execution}
+\subsection{Starting the execution}
 The application's entry point is defined in \texttt{main.ml}.
 Upon execution the application attemps to load the file and then passes it to the lexer, defined in \texttt{lexer.mll}. 
-The file is scanned from beginning to end, stripping away any syntatic sugar and identifying valid tokes.
+The file is scanned from beginning to end, stripping away any syntatic sugar and identifying valid tokens.
 The more complex tokens are handled as follows:
 
 \begin{enumerate}
@@ -697,7 +766,7 @@ The more complex tokens are handled as follows:
   The string is then converted into an OCaml's integer value and wrapped in the \texttt{INT} token.
       
 
-  \item \texttt{ID:} an identifier is recognizes as a sequence of alphabetic characters (both uppercase and lowercase) which does not match any other token. 
+  \item \texttt{ID:} an identifier is recognized as a sequence of alphabetic characters (both uppercase and lowercase) which does not match any other token. 
         The matching text is stored as part of the \texttt{ID} token.
   
   \item \texttt{DUMMY\_ID}: a dummy identifier is similar to an identifier, with the exception that
@@ -709,43 +778,43 @@ The more complex tokens are handled as follows:
 The list of remaning valid tokens is the following:
 \begin{multicols}{3} % Adjust number of columns as needed
 \begin{itemize}
-\item \texttt{LPAREN} : \texttt{(}
-\item \texttt{RPAREN} : \texttt{)}
-\item \texttt{LBRACE} : \texttt{\{}
-\item \texttt{RBRACE} : \texttt{\}}
-\item \texttt{PLUS} : \texttt{+}
-\item \texttt{MINUS} : \texttt{-}
-\item \texttt{MULT} : \texttt{**} | \texttt{×}
-\item \texttt{DIV} : \texttt{/}
-\item \texttt{MOD} : \texttt{\%}
-\item \texttt{BOOL(true)} : \texttt{true} | \texttt{⊤}
-\item \texttt{BOOL(false)} : \texttt{} | \texttt{⊥}
-\item \texttt{OR} : \texttt{||} | \texttt{∨}
-\item \texttt{AND} : \texttt{\&\&} | \texttt{∧}
-\item \texttt{NOT} : \texttt{!} | \texttt{¬}
-\item \texttt{LT} : \texttt{<}
-\item \texttt{LE} : \texttt{<=} | \texttt{≤}
-\item \texttt{GT} : \texttt{>}
-\item \texttt{GE} : \texttt{>=} | \texttt{≥}
-\item \texttt{EQ} : \texttt{=}
-\item \texttt{NEQ} : \texttt{!=} | \texttt{<>} | \texttt{≠}
-\item \texttt{EMP} : \texttt{emp}
-\item \texttt{REF} : \texttt{->} | \texttt{↦}
-\item \texttt{NREF} : \texttt{!->} | \texttt{!↦} | \texttt{↦̸}
-\item \texttt{SOMETHING} : \texttt{\_}
-\item \texttt{EXIST} : \texttt{exists} | $\exists$
-\item \texttt{SEP} : \texttt{*} | \texttt{∗}
-\item \texttt{DOT} : \texttt{.}
-\item \texttt{SEMICOLON} : \texttt{;}
-\item \texttt{SKIP} : \texttt{skip}
-\item \texttt{QUESTION} : \texttt{?}
-\item \texttt{LBRACK} : \texttt{[}
-\item \texttt{RBRACK} : \texttt{]}
-\item \texttt{ASSIGN} : \texttt{:=} | \texttt{←}
-\item \texttt{ALLOC} : \texttt{alloc}
-\item \texttt{FREE} : \texttt{free}
-\item \texttt{ERROR} : \texttt{error}
-\item \texttt{STAR} : \texttt{star} | \texttt{⋆}
+\item LPAREN = \texttt{(}
+\item RPAREN = \texttt{)}
+\item LBRACE = \texttt{\{}
+\item RBRACE = \texttt{\}}
+\item PLUS = \texttt{+}
+\item MINUS = \texttt{-}
+\item MULT = \texttt{**} | \texttt{×}
+\item DIV = \texttt{/}
+\item MOD = \texttt{\%}
+\item BOOL(true) = \texttt{true} | \texttt{⊤}
+\item BOOL(false) = \texttt{} | \texttt{⊥}
+\item OR = \texttt{||} | \texttt{∨}
+\item AND = \texttt{\&\&} | \texttt{∧}
+\item NOT = \texttt{!} | \texttt{¬}
+\item LT = \texttt{<}
+\item LE = \texttt{<=} | \texttt{≤}
+\item GT = \texttt{>}
+\item GE = \texttt{>=} | \texttt{≥}
+\item EQ = \texttt{=}
+\item NEQ = \texttt{!=} | \texttt{<>} | \texttt{≠}
+\item EMP = \texttt{emp}
+\item REF = \texttt{->} | \texttt{↦}
+\item NREF = \texttt{!->} | \texttt{!↦} | \texttt{↦̸}
+\item SOMETHING = \texttt{\_}
+\item EXIST = \texttt{exists} | $\exists$
+\item SEP = \texttt{*} | \texttt{∗}
+\item DOT = \texttt{.}
+\item SEMICOLON = \texttt{;}
+\item SKIP = \texttt{skip}
+\item QUESTION = \texttt{?}
+\item LBRACK = \texttt{[}
+\item RBRACK = \texttt{]}
+\item ASSIGN = \texttt{:=} | \texttt{←}
+\item ALLOC = \texttt{alloc}
+\item FREE = \texttt{free}
+\item ERROR = \texttt{error}
+\item STAR = \texttt{star} | \texttt{⋆}
 \end{itemize}
 \end{multicols}
 
@@ -764,9 +833,9 @@ The principal parsed AST types are:
   
   \item \texttt{Prop.t}: a proposition. It can be either an atomic one, the conjunction or disjunction between two proposition, or an existentially quantified proposition (i.e. $\exists x. prop$).
   
-  \item \texttt{Cmd.t}: a command. It could be $skip$, a boolean assertion, an assignement to an arithmetic expression, a store, a load, an allocation, a deallocation, or \texttt{error}.
+  \item \texttt{Cmd.t}: a command. It could be $skip$, a boolean assertion, an assignemnt to an arithmetic expression, a store, a load, an allocation, a deallocation, or \texttt{error}.
   
-  \item \texttt{Prog.t}: a program. It could be a command, the non-deterministic choice between two commands, the Kleene star, or the sequential composition of two or more programs. Note that a program in our syntax can either end with a semicolon or not.
+  \item \texttt{Prog.t} a program. It could be a command, the non-deterministic choice between two commands, the Kleene star, or the sequential composition of two or more programs. Note that a program in our syntax can either end with a semicolon or not.
 \end{enumerate}
 Finally, a well-formed input file has the shape \verb|{ P } C|, where \texttt{P} is a proposition (\texttt{Prop.t}) and \texttt{C} is a program (\texttt{Prog.t}).
 
@@ -793,6 +862,23 @@ When executing an \textit{Incorrectness Separation Logic+} triple, the front-end
       \item Only consider the states resulting after the $n$ iterations.
     \end{itemize}
 \end{itemize}
+
+This behavior is enabled with the \texttt{--step-exec} flag.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 \section{Examples}
 

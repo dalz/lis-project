@@ -101,7 +101,7 @@ let alloc_rule s x =
 
 (** Executes the choice rule. If `interactive` is enabled, then the user decides
     which path to take, otherwise the function selects at random. *)
-let choice_rule ?(interactive = true) (s : Executor_state.t) p1 p2 =
+let choice_rule ~interactive (s : Executor_state.t) p1 p2 =
   (* Handles user's input*)
   let rec get_input_choice_rule p1 p2 =
     (* Printing message to the user *)
@@ -146,7 +146,7 @@ let choice_rule ?(interactive = true) (s : Executor_state.t) p1 p2 =
     steps chosen by the user (the default value is 7). The user also decides if
     it wants to consider all the states produced inside the loop or only the
     ones after n interations have been done. *)
-let iter_rule exec ( let* ) s p =
+let iter_rule ~interactive exec ( let* ) s p =
   let rec get_input_iter_rule p =
     (* Getting the number of iterations *)
     Stdio.Out_channel.print_string "Given `p`:";
@@ -180,7 +180,9 @@ let iter_rule exec ( let* ) s p =
   in
 
   (* Let the user choose the number of interations and what it wants in return*)
-  let num_iter, is_all = get_input_iter_rule p in
+  let num_iter, is_all =
+    if interactive then get_input_iter_rule p else (7, false)
+  in
 
   let rec unroll s n acc : 'a status list =
     if n = 0 then acc
@@ -193,8 +195,16 @@ let iter_rule exec ( let* ) s p =
   unroll s num_iter []
 
 (** TODO Add a better description*)
-let exec ~on_step s p =
-  Executor.exec { bind; on_step; alloc_rule; choice_rule; iter_rule } s p
+let exec ~on_step ~interactive s p =
+  Executor.exec
+    {
+      bind;
+      on_step;
+      alloc_rule;
+      choice_rule = choice_rule ~interactive;
+      iter_rule = iter_rule ~interactive;
+    }
+    s p
   |> List.map ~f:(function
        | Ok s -> Ok (Executor_state.to_prop s)
        | Err s -> Err s
