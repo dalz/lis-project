@@ -879,363 +879,95 @@ This behavior is enabled with the \texttt{--step-exec} flag.
 
 The following section will list some examples, starting from the input files content and showing the corresponding output.
 
-The examples will highlight the verifier's key capabilities, progressing from simple to more complex scenarios.
+The examples will highlight the verifier's key capabilities.  
 
-Some of the examples include as last commented line a possible valid expected post condition.  
+\subsection{SL+}
+This example utilizes the SL+ executor to carry out the computations. The corresponding input file demonstrates the use of dummy variables, as well as the implementation of both iteration and choice commands. To enhance clarity, the explanation of the output will be interleaved with the actual output lines.
 
-\subsection{SL+ Examples}
-
-\begin{enumerate}
-
-\item \textbf{Input file}: 
-\begin{minted}{text}
-{ y ↦ v }
-x := [y]
-# { x=v ∧ y ↦ v }
+Input file: 
+\begin{minted}{text} 
+  { ⊤ }
+  x := 0;
+  y := 1;
+  (y := y + 1)⋆;
+  (x := x - y)⋆;
+  ((x > 0)?; z := 1) + ((x < 0)?; z := 2);
 \end{minted}
 
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-y ↦ v
-=========================
-Execution from state:
-y¹ ↦ v¹ ∧ v = v¹ ∧ y = y¹ ∧ ⊤
--------------------------
-v = v¹ ∧ x = v¹ ∧ y = y¹ ∧ y¹ ↦ v¹ ∧ x¹ = v¹
+Output: 
+\begin{minted}{text} 
+  Simplified precondition:              
+  ⊤
+  =========================
+  Execution from state:
+  ⊤
+  -------------------------
 \end{minted}
+1. The execution begins with a preconditions of $\perp$ (true), meaning that there are no initial constraints.
 
-\item 
-\textbf{Input file}: 
 \begin{minted}{text}
-{ x ↦ _ }
-[x] := y; 
-# {x ↦ y }
+  =========================
+  Current command : x ← 0
+  =========================
+  ⊤
+  -------------------------
+  =========================
+  Current command : y ← 1
+  =========================
+  x = x¹ ∧ x¹ = 0
+  -------------------------
 \end{minted}
+2. The first two executed commands are the \textbf{assignments} to $x$ and $y$. Each is handled by the \texttt{assign} function, which generates a fresh dummy variable. For instance, when assigning to $x$, the executor creates a new variable $x^1$ and maps the program variable $x$ to $x^1$. As a result, the path condition becomes $x = x^1 \land x^1 = 0$. The same process occurs for $y$, producing $y^1$ and updating the path condition accordingly. Since the path condition is maintained throughout, the resulting expression is:
 
-\textbf{Output}: 
+$$
+x = x^1 \land x^1 = 0 \land y = y^1 \land y^1 = 1
+$$
+
 \begin{minted}{text}
-Simplified precondition:
-x ↦ _
-=========================
-Execution from state:
-x¹ ↦ _∧ x = x¹∧ ⊤
--------------------------
-x = x¹ ∧ x¹ ↦ 0
+  =========================
+  Current command : y ← y + 1
+  =========================
+  x = x¹ ∧ y = y¹ ∧ x¹ = 0 ∧ y¹ = 1
+  -------------------------
+  =========================
+  Current command : y ← y + 1
+  =========================
+  x = x¹ ∧ y = y¹ ∧ 1 ≤ y¹ ∧ x¹ = 0
+  -------------------------
+  =========================
+  Current command : x ← x - y
+  =========================
+  x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ = 0
+  -------------------------
+  =========================
+  Current command : x ← x - y
+  =========================
+  x = x¹ ∧ y = y¹ ∧ 1 ≤ y¹ ∧ x¹ ≤ 0
+  -------------------------
 \end{minted}
-
-\item 
-\textbf{Input file}: 
+3. The SL executor handles iterations using \textbf{abstract interpretation} to compute loop invariants. For the loop $(y := y + 1)⋆$, the executor begins by executing the loop body once, starting from the current state. During this first iteration, the assignment $y := y + 1$ is processed, and the executor updates the path condition to reflect the increment of y. Instead of creating a new dummy variable for each iteration, the executor uses the \texttt{abstract\_join} function to combine the precondition and postcondition of the first iteration. This produces a candidate invariant summarizing the loop's behavior, in this case, $1 \leq y^1$, which captures the fact that $y$ starts at $1$ and \textbf{increases} with each iteration. 
+\\The executor then executes the loop body again using this candidate invariant as the \textbf{precondition} to verify its stability. If the invariant holds after the second iteration, it is considered stable and used as the loop's \textbf{postcondition}. This process avoids explicitly unrolling the loop multiple times and instead focuses on summarizing its behavior through a stable invariant. The same approach is applied to the second loop $(x := x - y)⋆$, where the executor identifies the invariant $x^1 \leq 0$, reflecting that $x$ decreases with each iteration.
 \begin{minted}{text}
-{ emp }
-x := alloc()
-# { x ↦ _ } 
+  =========================
+  Current command : assert 0 < x
+  =========================
+  x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ ≤ 0
+  -------------------------
+  =========================
+  Current command : assert x < 0
+  =========================
+  x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ ≤ 0
+  -------------------------
+  <= 0 < 0 < 0 <= 0
+  =========================
+  Current command : z ← 2
+  =========================
+  x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ < 0
+  -------------------------
+  x = x¹ ∧ y = y¹ ∧ z = z¹ ∧ z¹ = 2 ∧ x¹ < 0 ∧ -y¹ ≤ -1
 \end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-⊤
-=========================
-Execution from state:
-⊤
--------------------------
-x = x¹ ∧ x¹ ↦ _
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ x ↦ _ }
-free(x); 
-# {emp}
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-x ↦ _
-=========================
-Execution from state:
-x¹ ↦ _ ∧ x = x¹ ∧ ⊤
--------------------------
-x = x¹ ∧ x¹ ↦̸
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{false}
-[x] := y   
-#{false}
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-⊥
-⊥ (all branches pruned)
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ (-(x × 5) + (8 / 4 - x) × -x / 7 + -x + -x × -1) = 0 }
-skip
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-(-x + 2) × x / -7 - x × 5 = 0
-=========================
-Execution from state:
-x = x¹ ∧ (-x¹ + 2) × x¹ / -7 - x¹ × 5 = 0
--------------------------
-x = x¹ ∧ (-x¹ + 2) × x¹ / -7 - x¹ × 5 = 0
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ 0 <= x ∗ 0 <= y }
-(y ← y + x)⋆
-# y >= 0
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-0 ≤ y ∗ 0 ≤ x
-=========================
-Execution from state:
-x = x¹ ∧ y = y¹ ∧ 0 ≤ y¹ ∧ 0 ≤ x¹
--------------------------
-x = x¹ ∧ y = y¹ ∧ -y¹ ≤ 0 ∧ -x¹ ≤ 0
-\end{minted}
-
-\item \textbf{Input file}: 
-\begin{minted}{text}
-{ ⊤ }
-(x = 1?; y ← x) + (x = 2?; y ← x)
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-⊤
-=========================
-Execution from state:
-⊤
--------------------------
-x = x¹ ∧ x¹ = 1
--------------------------
-x = x² ∧ x² = 2
--------------------------
-x = x¹ ∧ y = x¹ ∧ x¹ = 1 ∧ y¹ = 1
-∨ x = x² ∧ y = x² ∧ x² = 2 ∧ y² = 2
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ ⊤ }
-
-x := 0;
-y := 1;
-(y := y + 1)⋆;
-(x := x - y)⋆;
-((x > 0)?; z := 1) + ((x < 0)?; z := 2);
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-⊤
-=========================
-Execution from state:
-⊤
--------------------------
-x = x¹ ∧ x¹ = 0
--------------------------
-x = x¹ ∧ y = y¹ ∧ x¹ = 0 ∧ y¹ = 1
--------------------------
-x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ = 0
--------------------------
-x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ ≤ 0
--------------------------
-x = x¹ ∧ y = y¹ ∧ ⊥
--------------------------
-<= 0 < 0 < 0 <= 0 x = x¹ ∧ y = y¹ ∧ -y¹ ≤ -1 ∧ x¹ < 0
--------------------------
-x = x¹ ∧ y = y¹ ∧ z = z¹ ∧ -y¹ ≤ -1 ∧ x¹ < 0 ∧ z¹ = 2
-\end{minted}
-
-\end{enumerate}
-
-\subsection{ISL+ Examples}
-
-\begin{enumerate}
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ x = nil }
-[x] := y
-# { er: x = nil }
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-x = nil
-=========================
-Execution from state:
-nil = nil¹ ∧ x = x¹ ∧ x¹ = nil¹
--------------------------
-[stuck]
-nil = nil¹ ∧ x = x¹ ∧ x¹ = nil¹
--------------------------
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ x ↦̸ }
-free(x)
-# {er: x ↦̸ }
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-x ↦̸
-=========================
-Execution from state:
-x¹ ↦̸ ∧ x = x¹ ∧ ⊤
--------------------------
-[error]
-x¹ ↦̸ ∧ x = x¹ ∧ 
--------------------------
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ x ↦ v }
-free(x)
-# {ok: x ↦̸ }
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-x ↦ v
-=========================
-Execution from state:
-x¹ ↦ v¹ ∧ v = v¹ ∧ x = x¹ ∧ ⊤
--------------------------
-v = v¹ ∧ x = x¹ ∧ x¹ ↦̸ ∧ ⊤
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ x = x' }
-x := alloc()
-# { ok: x ↦ _ }
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-x = x¹
-=========================
-Execution from state:
-x = x² ∧ x² = x¹
--------------------------
-x = x³ ∧ x³ ↦ _ ∧ ⊤ ∧ x² = x¹
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ y ↦̸ }
-x := alloc()
-# { ok: x ↦ v ∧ x = y }
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-y ↦̸
-=========================
-Execution from state:
-y¹ ↦̸ ∧ y = y¹ ∧ ⊤
--------------------------
-x = y¹ ∧ y = y¹ ∧ y¹ ↦ _ ∧ ⊤
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ x = nil }
-free(x)
-# {er: x = nil}
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ ⊤ }
-x ← 0;
-(x ← x + 1)⋆
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-⊤
-=========================
-Execution from state:
-⊤
--------------------------
-x = x¹ ∧ x¹ = 0
--------------------------
-x = x⁸ ∧ emp ∧ ⊤ ∧ x¹ = 0 ∧ x² = 1 ∧ x³ = 2 ∧ x⁴ = 3 
-∧ x⁵ = 4 ∧ x⁶ = 5 ∧ x⁷ = 6 ∧ x⁸ = 7
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-x = nil
-=========================
-Execution from state:
-nil = nil¹ ∧ x = x¹ ∧ x¹ = nil¹
--------------------------
-[stuck]
-nil = nil¹ ∧ x = x¹ ∧ x¹ = nil¹
--------------------------
-\end{minted}
-
-\item 
-\textbf{Input file}: 
-\begin{minted}{text}
-{ (-(x × 5) + (8 / 4 - x) × -x / 7 + -x + -x × -1) = 0 }
-skip
-\end{minted}
-
-\textbf{Output}: 
-\begin{minted}{text}
-Simplified precondition:
-(-x + 2) × x / -7 - x × 5 = 0
-=========================
-Execution from state:
-x = x¹ ∧ (-x¹ + 2) × x¹ / -7 - x¹ × 5 = 0
--------------------------
-x = x¹ ∧ emp ∧ ⊤ ∧ (-x¹ + 2) × x¹ / -7 - x¹ × 5 = 0
-\end{minted}
-
-\end{enumerate}
+4. The SL executor processes the non-deterministic choice command $((x > 0)?;\, z := 1) + ((x < 0)?;\, z := 2)$ by evaluating both branches \textbf{independently}. \\The initial state before the choice is $x = x^1 ∧ y = y^1 ∧ 1 \leq y^1 ∧ x^1 \leq 0$, indicating that $x$ is \textbf{non-positive} and $y$ is at least $1$. For the left branch $(x > 0)?;\, z := 1$, the executor checks the condition $x > 0$ against the current state. Since $x^1 \leq 0$, this condition is \textbf{false}, and the branch is \textbf{discarded}. 
+\\For the right branch $(x < 0)?;\, z := 2$, the executor verifies that $x < 0$ is consistent with the state, which is \textbf{true}. It then executes the assignment $z := 2$, creating a new dummy variable $z^1$ and updating the state to $x = x^1 ∧ y = y^1 ∧ z = z^1 ∧ z^1 = 2 ∧ x^1 < 0 ∧ 1 \leq y^1$. 
+\\After processing both branches, the executor combines the results. Since the left branch was \textbf{discarded}, the final state reflects only the effects of the \textbf{right branch}. By doing this the executor handles non-deterministic choices soundly, discarding inconsistent branches and updating the state based on valid ones only.
 
 \end{document}
