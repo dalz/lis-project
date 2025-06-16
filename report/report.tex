@@ -406,7 +406,7 @@ In summary, SL+ and ISL+ retain the core reasoning of their classical counterpar
 
 In SL+, triples of the form \(\{P\}\;c\;\{Q\}\) model an over-approximate semantics. The proof system includes rules such as \textsc{Assign+}, which binds the current value of a variable to a dummy before assignment, and \textsc{Alloc1+}, which allocates new memory with an unspecified value. Frame rules are permitted as long as the assertion refers only to dummy variables, guarantying locality even when the program alters the heap. Other constructs such as \texttt{if-then-else} and iteration are handled by the rules \textsc{Choice+}, \textsc{Seq+}, and \textsc{Iterate+}, which combine simpler proofs in a structured way. Here is the complete list of rules:
 
-\textbf{(Basic Commands)}
+\minisec{(Basic Commands)}
 
 \[
 \inferrule*[right=Skip$^+$]
@@ -419,14 +419,14 @@ In SL+, triples of the form \(\{P\}\;c\;\{Q\}\) model an over-approximate semant
 \]
 
 \[
-\inferrule*[right=Assume$^+$]
+\inferrule*[right=Assert$^+$]
   { }
-  {\{ \empX \}\ \texttt{assume}(b)\ \{ \empX \wedge b \}}
+  {\{ \empX \}\ b?\ \{ \empX \wedge b \}}
 \]
 
-\\
 
-\textbf{(Allocation and Free)}
+
+\minisec{(Allocation and Free)}
 
 \[
 \inferrule*[right=Alloc1$^+$]
@@ -438,9 +438,9 @@ In SL+, triples of the form \(\{P\}\;c\;\{Q\}\) model an over-approximate semant
   {\{ \empX \ast x \mapsto{-} \}\ \texttt{free}(x)\ \{ \empX \}}
 \]
 
-\\
 
-\textbf{(Load and Store)}
+
+\minisec{(Load and Store)}
 
 \[
 \inferrule*[right=LoadOk$^+$]
@@ -454,9 +454,9 @@ In SL+, triples of the form \(\{P\}\;c\;\{Q\}\) model an over-approximate semant
   {\{ \empX \ast x \mapsto{-} \}\ [x] := y\ \{ \empX \ast x \mapsto y \}}
 \]
 
-\\
 
-\textbf{(Structural and Control Rules)}
+
+\minisec{(Structural and Control Rules)}
 
 \[
 \inferrule*[right=Frame$^+$]
@@ -501,13 +501,13 @@ In SL+, triples of the form \(\{P\}\;c\;\{Q\}\) model an over-approximate semant
   {\forall i \in I.\ \{P_i\}\ r\ \{Q_i\}}
   {\{ \bigvee_{i \in I} P_i \}\ r\ \{ \bigvee_{i \in I} Q_i \}}
 \]
-\\
+
 
 
 
 ISL+ supports triples of the form \([P]\;c\;[Q]\), which model under-approximate program behavior. The rules \textsc{Exists+} and \textsc{Frame+} play a similar role, abstracting over unchanged or unobservable parts of the heap, with the constraint that frames refer only to dummy variables. Together, the ISL+ and SL+ proof systems provide a foundation for both correctness and incorrectness reasoning, based in local heap semantics and supported by a richer set of derivable proof rules. The complete set of ISL+ rules rules can be seen here:
 
-\textbf{(Basic Commands)}
+\minisec{(Basic Commands)}
 
 \[
 \inferrule*[right=Skip$^+$]
@@ -525,29 +525,29 @@ ISL+ supports triples of the form \([P]\;c\;[Q]\), which model under-approximate
   {[ \empXp ]\ \texttt{assume}(b)\ [ \empXp \wedge b ]}
 \]
 
-\\
 
-\textbf{(Allocation and Errors)}
+
+\minisec{(Allocation and Errors)}
 
 \[
 \inferrule*[right=Alloc1$^+$]
   { }
   {[ \empXp ]\ x := \texttt{alloc}()\ [ \empXp \setminus \{x\} \ast x \mapsto\_ ]}
-\qquad
+\]
+\[
 \inferrule*[right=Alloc2$^+$]
   { }
   {[ \empXp \ast l \not\mapsto ]\ x := \texttt{alloc}()\ [ \empXp \setminus \{x\} \ast l \mapsto\_ \wedge x = l ]}
 \]
-
 \[
 \inferrule*[right=Error$^+$]
   { }
   {[ \empXp ]\ \texttt{error}\ [ \empXp ]}
 \]
 
-\\
 
-\textbf{(Free Rules)}
+
+\minisec{(Free Rules)}
 
 \[
 \inferrule*[right=FreeOk$^+$]
@@ -565,9 +565,9 @@ ISL+ supports triples of the form \([P]\;c\;[Q]\), which model under-approximate
   {[ \empXp \ast x \neq \texttt{null} ]\ \texttt{free}(x)\ [ \empXp \ast x \neq \texttt{null} ]}
 \]
 
-\\
 
-\textbf{(Load and Store)}
+
+\minisec{(Load and Store)}
 
 \[
 \inferrule*[right=LoadOk$^+$]
@@ -579,7 +579,9 @@ ISL+ supports triples of the form \([P]\;c\;[Q]\), which model under-approximate
 \inferrule*[right=LoadEr1$^+$]
   { }
   {[ \empXp \ast y \not\mapsto ]\ x := [y]\ [ \empXp \ast y \not\mapsto ]}
-\qquad
+\]
+
+\[
 \inferrule*[right=LoadEr2$^+$]
   { }
   {[ \empXp \ast y \neq \texttt{null} ]\ x := [y]\ [ \empXp \ast y \neq \texttt{null} ]}
@@ -595,15 +597,17 @@ ISL+ supports triples of the form \([P]\;c\;[Q]\), which model under-approximate
 \inferrule*[right=StoreEr1$^+$]
   { }
   {[ \empXp \ast x \not\mapsto ]\ [x] := y\ [ \empXp \ast x \not\mapsto ]}
-\qquad
+\]
+
+\[
 \inferrule*[right=StoreEr2$^+$]
   { }
   {[ \empXp \ast x \neq \texttt{null} ]\ [x] := y\ [ \empXp \ast x \neq \texttt{null} ]}
 \]
 
-\\
 
-\textbf{(Structural and Control Rules)}
+
+\minisec{(Structural and Control Rules)}
 
 \[
 \inferrule*[right=Frame$^+$]
@@ -631,9 +635,9 @@ ISL+ supports triples of the form \([P]\;c\;[Q]\), which model under-approximate
   {[ \bigvee_{i \in I} P_i ]\ r\ [ \bigvee_{i \in I} Q_i ]}
 \]
 
-\\
 
-\textbf{(Remaining Inference Rules)}
+
+\minisec{(Remaining Inference Rules)}
 
 \[
 \inferrule*[right=Cons$^+$]
@@ -657,7 +661,7 @@ ISL+ supports triples of the form \([P]\;c\;[Q]\), which model under-approximate
   {[P]\ r_1;\,r_2\ [Q]}
 \]
 
-\\
+
 
 
 \section{Symbolic execution}
