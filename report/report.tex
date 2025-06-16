@@ -148,7 +148,7 @@ Semantically, this means:
 \end{align*}
 
 This specification may include non-reachable states. This is called \textbf{partial correctness}, as it does not guarantee that the program terminates — only that if it does, the postcondition holds.
-As it is deductible, Hoare triples rely on \emph{over-approximation} of program behaviors. This means that the set $[[c]]P$ includes all possible outcomes starting from states satisfying $P$, possibly including states that are not actually reachable, ensuring \emph{no false negatives} in verifying correctness.
+Hoare triples rely on \emph{over-approximation} of program behaviors. This means that the set $[[c]]P$ includes all possible outcomes starting from states satisfying $P$, possibly including states that are not actually reachable, ensuring \emph{no false negatives} in verifying correctness.
 \\ Verifying the correctness of \{ P \} c \{ Q \} corresponds to checking whether command $c$ satisfies the given specification. To construct formal proofs of partial correctness, we use axioms and inference rules. These constitute the axiomatic semantics of the language:
 
 \textbf{(skip)} 
@@ -184,7 +184,7 @@ As it is deductible, Hoare triples rely on \emph{over-approximation} of program 
 \begin{itemize}
 \item A triple \{ P \} c \{ Q \} is \textbf{semantically valid} if $[[c]]P \subseteq Q$;
 \item It is \textbf{provable} if there exists a derivation tree with that triple as root;
-\item The proof system is \textbf{sound}: only valid triples are provable;
+\item The proof system is \textbf{sound} if only valid triples are provable;
 \item Under certain conditions (e.g., availability of weakest preconditions), the system is also \textbf{complete}.
 \end{itemize}
 
@@ -360,7 +360,7 @@ For example if we take the following valid ISL triple
 we cannot find a derivation.
 
 \subsection{Dummy variables}
-One of the principles of SL and ISL is the locality. This means that the logic is capable of analyzing code sections regardless of the general state of the whole program. If we look into the incompleteness example of Section \ref{SL} we could argue that it represents a failure of the locality principle, since the rule is invalid due to some commands that will never be executed. But notice that if we somehow had a better way to keep track set of which variables were edited, the rule would be valid. Seeking this more precise set of modified variables, dummy variables were proposed.
+One of the principles of SL and ISL is the principle of locality. This means that the logic is capable of analyzing code sections regardless of the general state of the whole program. If we look into the incompleteness example of Section \ref{SL} we could argue that it represents a failure of the locality principle, since the rule is invalid due to some commands that will never be executed. But notice that if we somehow had a better way to keep track set of which variables were edited, the rule would be valid. Seeking this more precise set of modified variables, dummy variables were proposed.
 
 Unlike program variables, which are directly manipulated by program commands, dummy variables are introduced only in the assertion language. Their core property is immutability, and once instantiated, their values remain fixed. This stability allows them to express conditions related to the initial or expected values of the program variables. So, a new shorthand assertion \(emp_X\) analogous to the classical \(\mathsf{emp}\) predicate was introduced. However, instead of asserting an empty heap, \(emp_X\) imposes that aside from the heap being empty, there also exists a corresponding dummy variable \(x'\) for each program variable \(x \in X\).
 
@@ -404,7 +404,7 @@ In summary, SL+ and ISL+ retain the core reasoning of their classical counterpar
 
 \paragraph{Proof System}
 
-In SL+, triples of the form \(\{P\}\;c\;\{Q\}\) model an over-approximate semantics. The proof system includes rules such as \textsc{Assign+}, which binds the current value of a variable to a dummy before assignment, and \textsc{Alloc1+}, which allocates new memory with an unspecified value. Frame rules are permitted as long as the assertion refers only to dummy variables, guarantying locality even when the program alters the heap. Other constructs such as \texttt{if-then-else} and iteration are handled by the rules \textsc{Choice+}, \textsc{Seq+}, and \textsc{Iterate+}, which combine simpler proofs in a structured way. Here is the complete list of rules:
+In SL+, triples of the form \(\{P\}\;c\;\{Q\}\) model an over-approximate semantics. The proof system includes rules such as \textsc{Assign+}, which binds the current value of a variable to a dummy before assignment, and \textsc{Alloc1+}, which allocates new memory with an unspecified value. Frame rules are permitted as long as the assertion refers only to dummy variables, guaranteeing locality even when the program alters the heap. Other constructs such as \texttt{if-then-else} and iteration are handled by the rules \textsc{Choice+}, \textsc{Seq+}, and \textsc{Iterate+}, which combine simpler proofs in a structured way. Here is the complete list of rules:
 
 \minisec{(Basic Commands)}
 
@@ -738,7 +738,7 @@ The executor is parameterized over the bind operator of the status monad, to gen
     | Stuck _ -> [ x ]
 \end{minted}
 
-When composing two computations \(f\) and \(g\), if the \(f\) an \ml{Ok} result then \(g\) is always executed; if \(f\) gets stuck the state is returned immediately, without executing \(g\); errors are turned into stuck states in SL+, while in ISL+ execution continues but \ml{Ok} results of \(g\) are turned into errors.
+When composing two computations \(f\) and \(g\), if \(f\) returns an \ml{Ok} result then \(g\) is always executed; if \(f\) gets stuck the state is returned immediately, without executing \(g\); errors are turned into stuck states in SL+, while in ISL+ execution continues but \ml{Ok} results of \(g\) are turned into errors.
 
 \subsection{Executor}
 
@@ -1230,7 +1230,7 @@ $$
 \\After processing both branches, the executor combines the results. Since the left branch was \textbf{discarded}, the final state reflects only the effects of the \textbf{right branch}. By doing this the executor handles non-deterministic choices soundly, discarding inconsistent branches and updating the state based on valid ones only.
 
 \subsection{ISL+ example}
-This example illustrates the execution of various commands supported by the \textbf{ISL+ executor}, with a particular focus on the interactive mode enabled by the \verb|--step-exec| flag. This mode allows the user to make decisions related to \texttt{choice} and \texttt{iteration} constructs and allows the user to proceed in a step by step manner. This type of execution can be useful to follow the execution and understand what is going on during the execution. Inputs to proceed to the next step of execution will be excluded in the report to make the output more readable.
+This example illustrates the execution of various commands supported by the \textbf{ISL+ executor}, with a particular focus on the interactive mode enabled by the \verb|--step-exec| flag. This mode allows the user to make decisions related to \texttt{choice} and \texttt{iteration} constructs and allows the user to proceed in a step by step manner. This flag can be useful to follow the execution and understand what is going on step by step. Inputs to proceed to the next step of execution will be excluded in the report to make the output more readable.
 \\ Additionally, the example showcases the execution of the \texttt{alloc} and \texttt{free} commands.
 
 Input: 
