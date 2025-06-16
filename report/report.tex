@@ -970,4 +970,124 @@ $$
 \\For the right branch $(x < 0)?;\, z := 2$, the executor verifies that $x < 0$ is consistent with the state, which is \textbf{true}. It then executes the assignment $z := 2$, creating a new dummy variable $z^1$ and updating the state to $x = x^1 ∧ y = y^1 ∧ z = z^1 ∧ z^1 = 2 ∧ x^1 < 0 ∧ 1 \leq y^1$. 
 \\After processing both branches, the executor combines the results. Since the left branch was \textbf{discarded}, the final state reflects only the effects of the \textbf{right branch}. By doing this the executor handles non-deterministic choices soundly, discarding inconsistent branches and updating the state based on valid ones only.
 
+\subsection{ISL+ example}
+This example illustrates the execution of various commands supported by the \textbf{ISL+ executor}, with a particular focus on the interactive mode enabled by the \texttt{--step-exec} flag. This mode allows the user to make decisions related to \texttt{choice} and \texttt{iteration} constructs and allows the user to proceed in a step by step manner. This type of execution can be useful to follow the execution and understand what is going on during the execution. Inputs to proceed to the next step of execution will be excluded in the report to make the output more readable.
+\\ Additionally, the example showcases the execution of the \texttt{alloc} and \texttt{free} commands.
+
+Input: 
+\begin{minted}{text}
+  { ⊤ }
+  x ← 0;
+  (x ← x + 1)⋆;
+  (x := 1) + (x := 2);
+  y := alloc();
+  free(y);
+\end{minted}
+
+Output: 
+\begin{minted}{text}
+  Simplified precondition:              
+  ⊤
+  =========================
+  Execution from state:
+  ⊤
+  -------------------------
+  =========================
+  Current command : x ← 0
+  =========================
+  ⊤
+  -------------------------
+\end{minted}
+1. Like in the first example the execution starts from $\perp$ meaning that there are no
+initial constraints.
+
+\begin{minted}{text}
+  Given `p`:x ← x + 1
+  Choose how many iterations of `p` you want to unroll
+  Input (default is '7'): 
+\end{minted}
+2. The executor now prompts the user to specify the number of iterations to \textbf{unroll} the loop. Based on the input, the loop is executed exactly that number of times. In this specific case $x$ value will hold the passed number.
+
+\begin{minted}{text}
+  1 - Return only the states after the `n` iterations have been executed
+  2 - Return all the states computed in-between
+  Input (default is '1'):
+\end{minted}
+3. At this point, the user can choose to either view each \textbf{intermediate} step of the loop execution or directly observe the \textbf{final result}. In this example, intermediate steps are omitted in favor of the latter option, in order to reduce clutter and improve clarity and readability. 
+
+\begin{minted}{text}
+  =========================
+  Current command : x ← x + 1
+  =========================
+  x = x⁷
+  ∧ x¹ = 0
+  ∧ x² = 1
+  ∧ x³ = 2
+  ∧ x⁴ = 3
+  ∧ x⁵ = 4
+  ∧ x⁶ = 5
+  ∧ x⁷ = 6
+  -------------------------
+\end{minted}
+4. This is the output after the loop unrolling with the passed value. 
+
+\begin{minted}{text}
+  Non-det choice between:
+  - left_path:x ← 1
+  - right_path:x ← 2
+  1 - Input '1' for selecting the left path
+  2 - Input '2' for the right path
+  3 - Input '3'for both
+  4 - Input '4' for choosing at random
+Input (default is '4'):
+\end{minted}
+5. The executor now prompts the user to select a strategy for handling the choice construct. The user may opt to explore \textbf{one} of the available branches, \textbf{both}, or have one selected at random. In this specific example, the \textbf{left} branch is chosen in order to illustrate the behavior of the assignment command.
+
+\begin{minted}{text}
+  =========================
+  Current command : alloc y
+  =========================
+  x = x⁹
+  ∧ x¹ = 0
+  ∧ x² = 1
+  ∧ x³ = 2
+  ∧ x⁴ = 3
+  ∧ x⁵ = 4
+  ∧ x⁶ = 5
+  ∧ x⁷ = 6
+  ∧ x⁸ = 7
+  ∧ x⁹ = 1
+  -------------------------
+\end{minted}
+6. This is the output presented after the \texttt{choice} construct is executed. The output displays, through \textbf{dummy variables}, the values that the variable $x$ has assumed during execution. The final value assigned to $x$ corresponds to the left branch selected in the previous choice. Selecting a different branch would have resulted in a different value being assigned to the variable.
+
+\begin{minted}{text}
+  Select one among the following strategies for allocating the new variable y :
+  1 - Reuse the first deallocated location the program can find (if any exists)
+  2 - Choose explicitly which among the deallocated entries to reuse
+  3 - Allocate a new entry entirely
+  Input (default behavior is strategy '1')
+\end{minted}
+7. The next command to be executed is the \texttt{alloc} operation for the variable $y$. At this point, the executor prompts the user to select an allocation strategy. In this example, the first strategy is chosen. Since there are no previously deallocated locations prior to the allocation of $y$, executing either the first or the third strategy would result in the same allocation behavior.
+
+\begin{minted}{text}
+  =========================
+  Current command : free y
+  =========================
+  y¹ ↦ _
+  ∧ x = x⁹ 
+  ∧ y = y¹
+  ∧ x¹ = 0
+  ∧ x² = 1
+  ∧ x³ = 2
+  ∧ x⁴ = 3
+  ∧ x⁵ = 4
+  ∧ x⁶ = 5
+  ∧ x⁷ = 6
+  ∧ x⁸ = 7
+  ∧ x⁹ = 1
+  -------------------------
+  x = x⁹ ∧ y = y¹ ∧ y¹ ↦̸ ∧ ⊤ ∧ x⁹ = 1
+\end{minted}
+8. This is the \textbf{final output}, produced after the execution of the \texttt{free} command on the variable $y$. The output indicates that $x$ retains the value resulting from the earlier branching decision, and confirms that the variable $y$ has been successfully \textbf{deallocated}.
 \end{document}
