@@ -220,7 +220,7 @@ The extension of Hoare Logic with nondeterminism allows reasoning about programs
 
 Incorrectness Logic (IL) is a logic that complements Hoare Logic by focusing on the detection of program errors and the certification of incorrectness. While Hoare Logic is used to prove that programs behave correctly, Incorrectness Logic aims to prove that they behave \emph{incorrectly}—or more precisely, that certain erroneous states are \emph{reachable}.
 
-Aa seen, a standard Hoare triple is written as: $\{P\}~c~\{Q\}$ and expresses that if command $c$ is executed in a state satisfying $P$, and if it terminates, then the resulting state will satisfy $Q$. This implies the semantic condition: $\llbracket c \rrbracket P \subseteq Q$
+As seen, a standard Hoare triple is written as: $\{P\}~c~\{Q\}$ and expresses that if command $c$ is executed in a state satisfying $P$, and if it terminates, then the resulting state will satisfy $Q$. This implies the semantic condition: $\llbracket c \rrbracket P \subseteq Q$
 i.e., all reachable states are contained in $Q$.
 
 In contrast, an Incorrectness Logic triple is written as:
@@ -232,7 +232,7 @@ and asserts that: \emph{any state in $Q$ is guaranteed to be reachable by execut
 \llbracket c \rrbracket P \supseteq Q
 \]
 i.e., the postcondition $Q$ \emph{under-approximates} the set of reachable states. This distinction makes IL particularly useful for bug-finding and validation of counterexamples.
-\\Incorrectness Logic is based on \textbf{}{under-approximation}: it guarantees that all the post-states in $Q$ are reachable from some state in $P$, but it does not require completeness over all executions. This is complementary to Hoare Logic, which relies on \emph{over-approximation}.
+\\Incorrectness Logic is based on \textbf{under-approximation}: it guarantees that all the post-states in $Q$ are reachable from some state in $P$, but it does not require completeness over all executions. This is complementary to Hoare Logic, which relies on \emph{over-approximation}.
 \\ Incorrectness Logic and Hoare Logic can be used together under the following principles:
 
 \begin{itemize}
@@ -299,7 +299,7 @@ The side condition of the rule states that the command \(r\) should not modify t
 \paragraph{Incompleteness}
 One known limitation of SL is its incompleteness: there exists valid SL triples that are not provable.
 
-In fact we cannot find a derivation for the following triple:
+In fact, we cannot find a derivation for the following triple:
 \[
 \{y\mapsto\_\ast x\mapsto\_\}(false?;x:=[y])+(true?;skip)\{y\mapsto\_\ast x\mapsto\_\}
 \]
@@ -398,7 +398,7 @@ Using the new \(emp_X\) assertion in the incompleteness example of Section \ref{
 
 The ``+'' variants, SL+ and ISL+, are extensions of their classical counterpart systems. The main difference between SL, ISL and their plus versions is the usage of dummy variables to keep track of modified variables. Instead of requiring that frame assertions do not mention variables modified by the program, SL+ and ISL+ allow framed assertions to only mention dummy variables. This condition permits more powerful and complete derivations by ensuring that only variables that were changed are excluded from frames.
 
-Because SL and ISL differ in approximation style, the effect of these changes differs accordingly. SL+ improves partial-correctness reasoning by enabling stronger postconditions. ISL+, on the other hand, improve bug-finding capabilities. Under-approximate rules like allocation, load, and free can now be used even when framing memory that overlaps with modified state, as long as that memory is referred to only through dummy variables. This removes some restrictions that previously blocked a few proofs.
+Because SL and ISL differ in approximation style, the effect of these changes differs accordingly. SL+ improves partial-correctness reasoning by enabling stronger postconditions. ISL+, on the other hand, improves bug-finding capabilities. Under-approximate rules like allocation, load, and free can now be used even when framing memory that overlaps with modified state, as long as that memory is referred to only through dummy variables. This removes some restrictions that previously blocked a few proofs.
 
 In summary, SL+ and ISL+ retain the core reasoning of their classical counterparts, over- and under-approximate separation logic, while expanding expressiveness. By introducing dummy variables and a semantics-driven frame rule, the ``+'' variants enable richer assertions, better locality, and overall a more complete and modular proof systems for both correctness and incorrectness reasoning in heap-manipulating programs.
 
@@ -855,7 +855,7 @@ Stores (\texttt{[x] ← y}) work similarly, returning an error if \texttt{x}'s d
 
 \minisec{Allocation}
 
-In SL+, \texttt{x ← alloc()} creates a new dummy variable \texttt{x'}, sets it as the current dummy variable for \texttt{x}, and adds a \texttt{x ↦ \_} chunk to the heap.
+In SL+, \texttt{x ← alloc()} creates a new dummy variable \texttt{x'}, sets it as the current dummy variable for \texttt{x}, and adds a \texttt{x' ↦ \_} chunk to the heap.
 
 \begin{minted}{ocaml}
   let alloc_rule s x =
@@ -869,7 +869,7 @@ In SL+, \texttt{x ← alloc()} creates a new dummy variable \texttt{x'}, sets it
         }
 \end{minted}
 
-In ISL+, we can additionally reuse previously deallocated locations. Interactively we ask the user whether to do it (and which to reuse) or not. Non-interactively we always reuse the first deallocated location we find. Sample implementation without the interactive choice:
+In ISL+, we can additionally reuse previously deallocated locations. Interactively, we ask the user whether to do it (and which to reuse) or not. Non-interactively, we always reuse the first deallocated location we find. Sample implementation without the interactive choice:
 
 \begin{minted}{ocaml}
   let alloc_rule s x =
@@ -1024,8 +1024,8 @@ indicating whether they should be executed using
 
 \subsection{Starting the execution}
 The application's entry point is defined in \texttt{main.ml}.
-Upon execution the application attemps to load the file and then passes it to the lexer, defined in \texttt{lexer.mll}. 
-The file is scanned from beginning to end, stripping away any syntatic sugar and identifying valid tokens.
+Upon execution, the application attempts to load the file and then passes it to the lexer, defined in \texttt{lexer.mll}. 
+The file is scanned from beginning to end, stripping away any syntactic sugar and identifying valid tokens.
 The more complex tokens are handled as follows:
 
 \begin{enumerate}
@@ -1088,21 +1088,21 @@ The list of remaining valid tokens is the following:
 \end{multicols}
 
 The lexer then returns the ordered list of generated tokens, which is then passed to the parser, defined in \texttt{parser.mly}.
-The parser's purpose is to check whether this sequence of tokens forms a syntactically correct program and if so, it trasforms it into an Abstract Syntax Tree (AST).
+The parser's purpose is to check whether this sequence of tokens forms a syntactically correct program and if so, it transforms it into an Abstract Syntax Tree (AST).
 The principal parsed AST types are:
 
 \begin{enumerate}
   \item \texttt{Aexp.t}: an arithmetic expression. It can be either a binary operator between two valid arithmetic expressions (addition, subtraction, multiplication, division or modulo), the negation of an arithmetic expression, or the equality between an arithmetic expression and a variable (an \texttt{ID} token).
 
-  \item \texttt{Bexp.t}: a boolean expression. It can be either a boolean constant (true or false), a comparison between two valid arithmetic expressions, the conjunction or disjunction between two boolean expression, or the negation of a boolean expression.
+  \item \texttt{Bexp.t}: a boolean expression. It can be either a boolean constant (true or false), a comparison between two valid arithmetic expressions, the conjunction or disjunction between two boolean expressions, or the negation of a boolean expression.
 
   \item \texttt{Dummy.t}: an identifier. A \texttt{ID} token is treated as a dummy variable with number of apices equal to 0; a \texttt{DUMMY\_ID} token creates a dummy variable with the associated number of apices.
   
   \item \texttt{Atom.t}: an atomic proposition. It can be either a boolean expression, a points-to-anything assertion of the form $x \rightarrow \_$, a points-to assertion with an arithmetic expression in the form $x \rightarrow a$, a dangling pointer assertion in the form $x \nrightarrow$, or the empty heap.
   
-  \item \texttt{Prop.t}: a proposition. It can be either an atomic one, the conjunction or disjunction between two proposition, or an existentially quantified proposition (i.e. $\exists x. prop$).
+  \item \texttt{Prop.t}: a proposition. It can be either an atomic one, the conjunction or disjunction between two propositions, or an existentially quantified proposition (i.e., $\exists x. prop$).
   
-  \item \texttt{Cmd.t}: a command. It could be $skip$, a boolean assertion, an assignemnt to an arithmetic expression, a store, a load, an allocation, a deallocation, or \texttt{error}.
+  \item \texttt{Cmd.t}: a command. It could be $skip$, a boolean assertion, an assignment to an arithmetic expression, a store, a load, an allocation, a deallocation, or \texttt{error}.
   
   \item \texttt{Prog.t} a program. It could be a command, the non-deterministic choice between two commands, the Kleene star, or the sequential composition of two or more programs. Note that a program in our syntax can either end with a semicolon or not.
 \end{enumerate}
@@ -1121,7 +1121,7 @@ When executing an \textit{Incorrectness Separation Logic+} triple, the front-end
   \item \texttt{Allocation:} three allocation strategies are available:
     \begin{itemize}
       \item Reuse the first available deallocated location, if any exists.
-      \item Manually select which available deallocated location to reuse, if any exists
+      \item Manually select which available deallocated location to reuse, if any exists.
       \item Allocate a new memory location, ignoring any available deallocated ones.
     \end{itemize}
   \item \texttt{Choice:} the user can choose which branch to execute or execute both branches.
@@ -1162,7 +1162,7 @@ Output:
   ⊤
   -------------------------
 \end{minted}
-1. The execution begins with a preconditions of $\perp$ (true), meaning that there are no initial constraints.
+1. The execution begins with a precondition of $\top$ (true), meaning that there are no initial constraints.
 
 \begin{minted}{text}
   =========================
