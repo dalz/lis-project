@@ -729,7 +729,7 @@ The approach works by maintaining a set $S$ of currently active dummy variables.
 \item Otherwise, the atomic proposition is considered inactive and is pruned from the postcondition.
 \end{enumerate}
 The process is repeated until $S$ is no longer updated with a new element.
-This logic is implemented in the \texttt{dummy\_dismantler} function of the executor state. The function is invoked during execution in both SL+ and ISL+ by default, and can be disabled via the \texttt{--keep-dummies} flag.
+This logic is implemented in the \texttt{dummy\_dismantler} function of the executor state. The function is invoked during execution in both SL+ and ISL+ by default, and can be disabled via the \verb|--keep-dummies| flag.
 
 \section{Simplification}
 
@@ -785,7 +785,7 @@ The more complex tokens are handled as follows:
         Both values are wrapped into the \texttt{DUMMY\_ID} token: the name as a string and the number of apices as an integer.
 \end{enumerate}
 
-The list of remaning valid tokens is the following:
+The list of remaining valid tokens is the following:
 \begin{multicols}{3} % Adjust number of columns as needed
 \begin{itemize}
 \item LPAREN = \texttt{(}
@@ -798,7 +798,7 @@ The list of remaning valid tokens is the following:
 \item DIV = \texttt{/}
 \item MOD = \texttt{\%}
 \item BOOL(true) = \texttt{true} | \texttt{⊤}
-\item BOOL(false) = \texttt{} | \texttt{⊥}
+\item BOOL(false) = \texttt{false} | \texttt{⊥}
 \item OR = \texttt{||} | \texttt{∨}
 \item AND = \texttt{\&\&} | \texttt{∧}
 \item NOT = \texttt{!} | \texttt{¬}
@@ -829,7 +829,7 @@ The list of remaning valid tokens is the following:
 \end{multicols}
 
 The lexer then returns the ordered list of generated tokens, which is then passed to the parser, defined in \texttt{parser.mly}.
-The parser's purpose is to check whether this sequence of tokens forms a syntactically correct program and if so, it trasforms it into an Abstract Syntax Tree(AST).
+The parser's purpose is to check whether this sequence of tokens forms a syntactically correct program and if so, it trasforms it into an Abstract Syntax Tree (AST).
 The principal parsed AST types are:
 
 \begin{enumerate}
@@ -873,7 +873,7 @@ When executing an \textit{Incorrectness Separation Logic+} triple, the front-end
     \end{itemize}
 \end{itemize}
 
-This behavior is enabled with the \texttt{--step-exec} flag.
+This behavior is enabled with the \verb|--step-exec| flag.
 
 \section{Examples}
 
@@ -971,7 +971,7 @@ $$
 \\After processing both branches, the executor combines the results. Since the left branch was \textbf{discarded}, the final state reflects only the effects of the \textbf{right branch}. By doing this the executor handles non-deterministic choices soundly, discarding inconsistent branches and updating the state based on valid ones only.
 
 \subsection{ISL+ example}
-This example illustrates the execution of various commands supported by the \textbf{ISL+ executor}, with a particular focus on the interactive mode enabled by the \texttt{--step-exec} flag. This mode allows the user to make decisions related to \texttt{choice} and \texttt{iteration} constructs and allows the user to proceed in a step by step manner. This type of execution can be useful to follow the execution and understand what is going on during the execution. Inputs to proceed to the next step of execution will be excluded in the report to make the output more readable.
+This example illustrates the execution of various commands supported by the \textbf{ISL+ executor}, with a particular focus on the interactive mode enabled by the \verb|--step-exec| flag. This mode allows the user to make decisions related to \texttt{choice} and \texttt{iteration} constructs and allows the user to proceed in a step by step manner. This type of execution can be useful to follow the execution and understand what is going on during the execution. Inputs to proceed to the next step of execution will be excluded in the report to make the output more readable.
 \\ Additionally, the example showcases the execution of the \texttt{alloc} and \texttt{free} commands.
 
 Input: 
@@ -998,7 +998,7 @@ Output:
   ⊤
   -------------------------
 \end{minted}
-1. Like in the first example the execution starts from $\perp$ meaning that there are no
+1. Like in the first example the execution starts from $\top$ meaning that there are no
 initial constraints.
 
 \begin{minted}{text}
@@ -1013,7 +1013,7 @@ initial constraints.
   2 - Return all the states computed in-between
   Input (default is '1'):
 \end{minted}
-3. At this point, the user can choose to either view each \textbf{intermediate} step of the loop execution or directly observe the \textbf{final result}. In this example, intermediate steps are omitted in favor of the latter option, in order to reduce clutter and improve clarity and readability. 
+3. At this point, the user can choose to keep only the state after the last execution, or all states produced after each iteration (as alternative possible executions). Here we choose the former option.
 
 \begin{minted}{text}
   =========================
