@@ -329,11 +329,7 @@ let abstract_join_path_cond ~ensure_equal s t =
 (** Removes noises in the postcondition*)
 let dummy_dismantler (post : t) : t =
   (* Creates the set of all dummy variables available *)
-  let dummy_set =
-    Base.Map.fold post.dummies
-      ~init:(Set.empty (module Dummy))
-      ~f:(fun ~key:_ ~data acc -> Set.add acc data)
-  in
+  let dummy_set = Map.keys post.heap @ Map.data post.dummies in
 
   (* for each atom in path_condition:
       - if atom has at least a dummy in S or no dummy, remove it from 
