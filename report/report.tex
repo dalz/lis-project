@@ -402,7 +402,262 @@ Because SL and ISL differ in approximation style, the effect of these changes di
 
 In summary, SL+ and ISL+ retain the core reasoning of their classical counterparts, over- and under-approximate separation logic, while expanding expressiveness. By introducing dummy variables and a semantics-driven frame rule, the ``+'' variants enable richer assertions, better locality, and overall a more complete and modular proof systems for both correctness and incorrectness reasoning in heap-manipulating programs.
 
+\paragraph{Proof System}
 
+In SL+, triples of the form \(\{P\}\;c\;\{Q\}\) model an over-approximate semantics. The proof system includes rules such as \textsc{Assign+}, which binds the current value of a variable to a dummy before assignment, and \textsc{Alloc1+}, which allocates new memory with an unspecified value. Frame rules are permitted as long as the assertion refers only to dummy variables, guarantying locality even when the program alters the heap. Other constructs such as \texttt{if-then-else} and iteration are handled by the rules \textsc{Choice+}, \textsc{Seq+}, and \textsc{Iterate+}, which combine simpler proofs in a structured way. Here is the complete list of rules:
+
+\textbf{(Basic Commands)}
+
+\[
+\inferrule*[right=Skip$^+$]
+  { }
+  {\{ \empX \}\ \texttt{skip}\ \{ \empX \}}
+\qquad
+\inferrule*[right=Assign$^+$]
+  { }
+  {\{ \empX \setminus \{x\} \wedge x = x' \}\ x := e\ \{ \empX \setminus \{x\} \wedge x = e[x'/x] \}}
+\]
+
+\[
+\inferrule*[right=Assume$^+$]
+  { }
+  {\{ \empX \}\ \texttt{assume}(b)\ \{ \empX \wedge b \}}
+\]
+
+\\
+
+\textbf{(Allocation and Free)}
+
+\[
+\inferrule*[right=Alloc1$^+$]
+  { }
+  {\{ \empX \}\ x := \texttt{alloc}()\ \{ \empX \setminus \{x\} \ast x \mapsto{-} \}}
+\qquad
+\inferrule*[right=FreeOk$^+$]
+  { }
+  {\{ \empX \ast x \mapsto{-} \}\ \texttt{free}(x)\ \{ \empX \}}
+\]
+
+\\
+
+\textbf{(Load and Store)}
+
+\[
+\inferrule*[right=LoadOk$^+$]
+  { }
+  {\{ \empX \ast y \mapsto v \}\ x := [y]\ \{ \empX \setminus \{x\} \ast y \mapsto v \wedge x = v \}}
+\]
+
+\[
+\inferrule*[right=StoreOk$^+$]
+  { }
+  {\{ \empX \ast x \mapsto{-} \}\ [x] := y\ \{ \empX \ast x \mapsto y \}}
+\]
+
+\\
+
+\textbf{(Structural and Control Rules)}
+
+\[
+\inferrule*[right=Frame$^+$]
+  {\{P\}\ r\ \{Q\} \quad \text{fv}(R) \subseteq X_d}
+  {\{P \ast R\}\ r\ \{Q \ast R\}}
+\qquad
+\inferrule*[right=Exists$^+$]
+  {\{P\}\ r\ \{Q\} \quad X \subseteq X_d}
+  {\{ \exists X.\,P \}\ r\ \{ \exists X.\,Q \}}
+\]
+
+\[
+\inferrule*[right=Cons$^+$]
+  {P' \Rightarrow P \quad \{P'\}\ r\ \{Q'\} \quad Q' \Rightarrow Q}
+  {\{P\}\ r\ \{Q\}}
+\]
+
+\[
+\inferrule*[right=Iterate-zero$^+$]
+  { }
+  {\{P\}\ r^{\ast}\ \{P\}}
+\qquad
+\inferrule*[right=Iterate$^+$]
+  {\{P\}\ r^{\ast}\ \{P\} \quad \{P\}\ r\ \{Q\}}
+  {\{P\}\ r^{\ast}\ \{Q\}}
+\]
+
+\[
+\inferrule*[right=Seq$^+$]
+  {\{P\}\ r_1\ \{S\} \quad \{S\}\ r_2\ \{Q\}}
+  {\{P\}\ r_1;\,r_2\ \{Q\}}
+\]
+
+\[
+\inferrule*[right=Choice$^+$]
+  {\forall i \in \{1, 2\}.\ \{P\}\ r_i\ \{Q\}}
+  {\{P\}\ r_1 + r_2\ \{Q\}}
+\]
+
+\[
+\inferrule*[right=Disj$^+$]
+  {\forall i \in I.\ \{P_i\}\ r\ \{Q_i\}}
+  {\{ \bigvee_{i \in I} P_i \}\ r\ \{ \bigvee_{i \in I} Q_i \}}
+\]
+\\
+
+
+
+ISL+ supports triples of the form \([P]\;c\;[Q]\), which model under-approximate program behavior. The rules \textsc{Exists+} and \textsc{Frame+} play a similar role, abstracting over unchanged or unobservable parts of the heap, with the constraint that frames refer only to dummy variables. Together, the ISL+ and SL+ proof systems provide a foundation for both correctness and incorrectness reasoning, based in local heap semantics and supported by a richer set of derivable proof rules. The complete set of ISL+ rules rules can be seen here:
+
+\textbf{(Basic Commands)}
+
+\[
+\inferrule*[right=Skip$^+$]
+  { }
+  {[ \empXp ]\ \texttt{skip}\ [ \empXp ]}
+\qquad
+\inferrule*[right=Assign$^+$]
+  { }
+  {[ \empXp \setminus \{x\} \wedge x = x' ]\ x := e\ [ \empXp \setminus \{x\} \wedge x = e[x'/x] ]}
+\]
+
+\[
+\inferrule*[right=Assume$^+$]
+  { }
+  {[ \empXp ]\ \texttt{assume}(b)\ [ \empXp \wedge b ]}
+\]
+
+\\
+
+\textbf{(Allocation and Errors)}
+
+\[
+\inferrule*[right=Alloc1$^+$]
+  { }
+  {[ \empXp ]\ x := \texttt{alloc}()\ [ \empXp \setminus \{x\} \ast x \mapsto\_ ]}
+\qquad
+\inferrule*[right=Alloc2$^+$]
+  { }
+  {[ \empXp \ast l \not\mapsto ]\ x := \texttt{alloc}()\ [ \empXp \setminus \{x\} \ast l \mapsto\_ \wedge x = l ]}
+\]
+
+\[
+\inferrule*[right=Error$^+$]
+  { }
+  {[ \empXp ]\ \texttt{error}\ [ \empXp ]}
+\]
+
+\\
+
+\textbf{(Free Rules)}
+
+\[
+\inferrule*[right=FreeOk$^+$]
+  { }
+  {[ \empXp \ast x \mapsto v ]\ \texttt{free}(x)\ [ \empXp \ast x \not\mapsto ]}
+\qquad
+\inferrule*[right=FreeEr1$^+$]
+  { }
+  {[ \empXp \ast x \not\mapsto ]\ \texttt{free}(x)\ [ \empXp \ast x \not\mapsto ]}
+\]
+
+\[
+\inferrule*[right=FreeEr2$^+$]
+  { }
+  {[ \empXp \ast x \neq \texttt{null} ]\ \texttt{free}(x)\ [ \empXp \ast x \neq \texttt{null} ]}
+\]
+
+\\
+
+\textbf{(Load and Store)}
+
+\[
+\inferrule*[right=LoadOk$^+$]
+  { }
+  {[ \empXp \ast y \mapsto v ]\ x := [y]\ [ \empXp \setminus \{x\} \ast y \mapsto v \wedge x = v ]}
+\]
+
+\[
+\inferrule*[right=LoadEr1$^+$]
+  { }
+  {[ \empXp \ast y \not\mapsto ]\ x := [y]\ [ \empXp \ast y \not\mapsto ]}
+\qquad
+\inferrule*[right=LoadEr2$^+$]
+  { }
+  {[ \empXp \ast y \neq \texttt{null} ]\ x := [y]\ [ \empXp \ast y \neq \texttt{null} ]}
+\]
+
+\[
+\inferrule*[right=StoreOk$^+$]
+  { }
+  {[ \empXp \ast x \mapsto v ]\ [x] := y\ [ \empXp \ast x \mapsto y ]}
+\]
+
+\[
+\inferrule*[right=StoreEr1$^+$]
+  { }
+  {[ \empXp \ast x \not\mapsto ]\ [x] := y\ [ \empXp \ast x \not\mapsto ]}
+\qquad
+\inferrule*[right=StoreEr2$^+$]
+  { }
+  {[ \empXp \ast x \neq \texttt{null} ]\ [x] := y\ [ \empXp \ast x \neq \texttt{null} ]}
+\]
+
+\\
+
+\textbf{(Structural and Control Rules)}
+
+\[
+\inferrule*[right=Frame$^+$]
+  {[P]\ r\ [Q] \quad \text{fv}(R) \subseteq X_d}
+  {[P \ast R]\ r\ [Q \ast R]}
+\qquad
+\inferrule*[right=Exists$^+$]
+  {[P]\ r\ [Q] \quad X \subseteq X_d}
+  {[ \exists X.\,P ]\ r\ [ \exists X.\,Q ]}
+\]
+
+\[
+\inferrule*[right=Seq$^+$]
+  {[P]\ r_1\ [S] \quad [S]\ r_2\ [Q]}
+  {[P]\ r_1;\,r_2\ [Q]}
+\qquad
+\inferrule*[right=Choice$^+$]
+  {\forall i \in \{1,2\}.\ [P]\ r_i\ [Q_i]}
+  {[P]\ r_1 + r_2\ [Q_1 \vee Q_2]}
+\]
+
+\[
+\inferrule*[right=Disj$^+$]
+  {\forall i \in I.\ [P_i]\ r\ [Q_i]}
+  {[ \bigvee_{i \in I} P_i ]\ r\ [ \bigvee_{i \in I} Q_i ]}
+\]
+
+\\
+
+\textbf{(Remaining Inference Rules)}
+
+\[
+\inferrule*[right=Cons$^+$]
+  { P' \Rightarrow P \quad [P']\ r\ [Q'] \quad Q \Rightarrow Q' }
+  {[P]\ r\ [Q]}
+\]
+
+\[
+\inferrule*[right=Iterate-zero$^+$]
+  { }
+  {[P]\ r^{\ast}\ [P]}
+\qquad
+\inferrule*[right=Iterate$^+$]
+  {[P]\ r^{\ast}\ [P] \quad [P]\ r\ [Q]}
+  {[P]\ r^{\ast}\ [Q]}
+\]
+
+\[
+\inferrule*[right=SeqEr$^+$]
+  {[P]\ r_1\ [Q]}
+  {[P]\ r_1;\,r_2\ [Q]}
+\]
+
+\\
 
 
 \section{Symbolic execution}
