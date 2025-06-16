@@ -737,7 +737,7 @@ At various points a number of simplification procedures are applied to the formu
 
 Arithmetic simplification (\texttt{aexp.ml}) applies a set of rewriting rules that push parentheses and constants to the right, replacing subexpressions with their computed result whenever possible.
 
-Path conditions are conjunctions of boolean constants and comparisons. Simplification eliminates the constants and applies arithmetic simplification to the operands of the comparisons. It then tries to reason about bounds, \eg eliminating \texttt{x < 1} from \texttt{x < 0 ∧ x < 1}. % FIXME doesn't work
+Path conditions are conjunctions of boolean constants and comparisons. Simplification eliminates the constants and applies arithmetic simplification to the operands of the comparisons. It then tries to reason about bounds, \eg eliminating \texttt{x < 1} from \texttt{x < 0 ∧ x < 1}.
 
 To simplify an executor state we first invoke the path condition simplification procedure, then try to extract and apply substitutions from the path condition. For example, if we have \texttt{x' = 0} in the path condition and \texttt{y' ↦ x'} in the heap, we replace the chunk with \texttt{y' ↦ 0}; from \texttt{x' ↦ \_ ∗ y' ↦ \_ ∧ x' = y'} we deduce false.
 
