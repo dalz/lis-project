@@ -348,7 +348,7 @@ let dummy_dismantler (post : t) : t =
       matched_atoms : Path_cond.t;
     }
   end in
-  let scan_path_condition (r : Result.t) : Result.t =
+  let scan_path_condition (r : Result.t) () : Result.t =
     List.fold r.path_cond
       ~init:Result.{ r with path_cond = [] }
       ~f:(fun acc atom ->
@@ -361,13 +361,21 @@ let dummy_dismantler (post : t) : t =
                       add atom to matched_atoms 
                       && add all dummies of atom in S
                - Otherwise put atom in path_cond *)
-            let check_dummy (a : Aexp.t) status () =
+            let rec check_dummy (a : Aexp.t) status () =
               let is_found, set = status in
+
+              let compare_dummy (d : Dummy.t) () =
+                if is_found then (true, Set.add set d)
+                else if Set.mem set d then (true, set)
+                else (false, set)
+              in
+
               match a with
-              | Var dummy ->
-                  if is_found then (true, Set.add set dummy)
-                  else if Set.mem set dummy then (true, set)
-                  else (false, set)
+              | Var dummy -> compare_dummy dummy ()
+              | Bop (_, a1, a2) ->
+                  let status' = check_dummy a1 status () in
+                  check_dummy a2 status' ()
+              | Uop (_, a) -> check_dummy a status ()
               | _ -> (is_found, set)
             in
             let status' = check_dummy a1 (false, acc.set) () in
@@ -383,7 +391,7 @@ let dummy_dismantler (post : t) : t =
   (* Repeat scan_path_condition until the returned set equals the one gave in 
      input. When exiting return only the resulting matched_atoms *)
   let rec solution (r : Result.t) =
-    let r' = scan_path_condition r in
+    let r' = scan_path_condition r () in
     if Set.equal r.set r'.set then { post with path_cond = r'.matched_atoms }
     else solution r'
   in
