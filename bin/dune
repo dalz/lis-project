@@ -1,4 +1,4 @@
 (executable
- (public_name lis-project)
+ (public_name veridum)
  (name main)
  (libraries lis_project))

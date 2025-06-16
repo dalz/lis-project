@@ -3,7 +3,7 @@ open Stdio
 open Lis_project
 open Lexing
 
-let usage_msg = "lis_project [OPTIONS] [filename]"
+let usage_msg = Printf.sprintf "%s [OPTIONS] [filename]" (Sys.get_argv ()).(0)
 let input_file = ref ""
 let force_isl = ref false
 let force_sl = ref false
