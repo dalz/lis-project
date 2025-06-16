@@ -192,7 +192,7 @@ let iter_rule ~interactive exec ( let* ) s p =
       let acc = if is_all then acc @ l else [ Ok s ] in
       unroll s (n - 1) acc
   in
-  unroll s num_iter []
+  unroll s num_iter [ Ok s ]
 
 (** TODO Add a better description*)
 let exec ?(denoise = true) ~on_step ~interactive s p =
