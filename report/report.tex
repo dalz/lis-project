@@ -144,11 +144,11 @@ These rules are used to derive valid Hoare triples.
 \end{quote}
 Semantically, this means:
 \begin{align*}
-[[c]]P \subseteq Q
+\llbracket c \rrbracket P \subseteq Q
 \end{align*}
 
 This specification may include non-reachable states. This is called \textbf{partial correctness}, as it does not guarantee that the program terminates — only that if it does, the postcondition holds.
-Hoare triples rely on \emph{over-approximation} of program behaviors. This means that the set $[[c]]P$ includes all possible outcomes starting from states satisfying $P$, possibly including states that are not actually reachable, ensuring \emph{no false negatives} in verifying correctness.
+Hoare triples rely on \emph{over-approximation} of program behaviors. This means that the set $\llbracket c \rrbracket P$ includes all possible outcomes starting from states satisfying $P$, possibly including states that are not actually reachable, ensuring \emph{no false negatives} in verifying correctness.
 \\ Verifying the correctness of \{ P \} c \{ Q \} corresponds to checking whether command $c$ satisfies the given specification. To construct formal proofs of partial correctness, we use axioms and inference rules. These constitute the axiomatic semantics of the language:
 
 \textbf{(skip)} 
@@ -182,7 +182,7 @@ Hoare triples rely on \emph{over-approximation} of program behaviors. This means
 \]
 \\ We say:
 \begin{itemize}
-\item A triple \{ P \} c \{ Q \} is \textbf{semantically valid} if $[[c]]P \subseteq Q$;
+\item A triple \{ P \} c \{ Q \} is \textbf{semantically valid} if $\llbracket c \rrbracket P \subseteq Q$;
 \item It is \textbf{provable} if there exists a derivation tree with that triple as root;
 \item The proof system is \textbf{sound} if only valid triples are provable;
 \item Under certain conditions (e.g., availability of weakest preconditions), the system is also \textbf{complete}.
@@ -195,7 +195,7 @@ Multiple preconditions or postconditions may be valid for a given Hoare triple. 
 \end{align*}
 Formally:
 \begin{align*}
-\text{wlp}(c, Q) = {\sigma \in \Sigma \mid [[c]]{\sigma} \subseteq Q}
+\text{wlp}(c, Q) = {\sigma \in \Sigma \mid \llbracket c \rrbracket {\sigma} \subseteq Q}
 \end{align*}
 
 Hoare Logic can be extended to handle \textbf{nondeterministic computations} by introducing a richer syntax of \emph{regular commands}. These commands allow us to represent nondeterministic behavior through constructs such as choice, assumption, and iteration.
