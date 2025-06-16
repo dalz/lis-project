@@ -12,7 +12,7 @@ let bind x f =
     always try to reuse existing deallocated locations (Alloc2 rule), but the
     user can decide which part of memory deallocate or instead allocating a
     fresh new one without touching the stack. *)
-let alloc_rule s x =
+let alloc_rule ~interactive s x =
   let open Executor_state in
   let user_message =
     Printf.sprintf
@@ -20,7 +20,7 @@ let alloc_rule s x =
        variable %s :"
       (Ide.to_string x)
   in
-  let get_user_choice =
+  let get_user_choice () =
     Stdio.Out_channel.print_endline user_message;
     Stdio.Out_channel.print_endline
       "1 - Reuse the first deallocated location the program can find (if any \
@@ -86,7 +86,7 @@ let alloc_rule s x =
   let new_alloc () = Dummy.fresh_of_ide x in
 
   let x' =
-    match get_user_choice with
+    match if interactive then get_user_choice () else 1 with
     | 1 -> find_first_deallc ()
     | 2 -> find_specific_deallc ()
     | 3 -> new_alloc ()
@@ -200,7 +200,7 @@ let exec ?(denoise = true) ~on_step ~interactive s p =
     {
       bind;
       on_step;
-      alloc_rule;
+      alloc_rule = alloc_rule ~interactive;
       choice_rule = choice_rule ~interactive;
       iter_rule = iter_rule ~interactive;
     }

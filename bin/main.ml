@@ -9,6 +9,7 @@ let force_isl = ref false
 let force_sl = ref false
 let step_exec = ref false
 let no_verbose = ref false
+let keep_dummies = ref false
 let anon_fun filename = input_file := filename
 
 let speclist =
@@ -21,6 +22,9 @@ let speclist =
     ( "--no-verbose",
       Stdlib.Arg.Set no_verbose,
       "Skip the execution prints and shows the result" );
+    ( "--keep-dummies",
+      Stdlib.Arg.Set keep_dummies,
+      "Keep unused dummy variables in the final postconditions" );
   ]
 
 let print d =
@@ -90,6 +94,7 @@ let () =
       failwith "Extension of input file should be .isl or .sl"
     else failwith "To read program from stdin you must specify --sl or --isl"
   in
+  let exec = exec ~denoise:(not !keep_dummies) in
 
   let pre, prog =
     if

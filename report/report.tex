@@ -729,7 +729,7 @@ The approach works by maintaining a set $S$ of currently active dummy variables.
 \item Otherwise, the atomic proposition is considered inactive and is pruned from the postcondition.
 \end{enumerate}
 The process is repeated until $S$ is no longer updated with a new element.
-This logic is implemented in the \texttt{dummy\_dismantler} function of the executor state. The function is invoked during execution in both SL+ and ISL+ when the boolean flag \texttt{denoise} is enabled (which is the default).
+This logic is implemented in the \texttt{dummy\_dismantler} function of the executor state. The function is invoked during execution in both SL+ and ISL+ by default, and can be disabled via the \texttt{--keep-dummies} flag.
 
 \section{Simplification}
 
@@ -748,7 +748,7 @@ Users can compile and run the project with the following commands:
 \begin{verbatim}
   $ opam install . --deps-only
   $ dune build
-  $ _build/default/main.exe [--sl|--isl] [--step-exec] [--no-verbose] <file>
+  $ _build/default/bin/main.exe [--sl|--isl] [--step-exec] [--no-verbose] [--keep-dummies] <file>
 \end{verbatim}
 
 A valid input file must specify a precondition and a program, adhering to the following standard structure:
