@@ -46,7 +46,7 @@ let rec simpl = function
   | Or (p, q) -> (
       match (simpl p, simpl q) with
       | _, Atom (Emp | Bool (Const true)) | Atom (Emp | Bool (Const true)), _ ->
-          Atom (Bool (Const false))
+          Atom (Bool (Const true))
       | p, Atom (Bool (Const false)) | Atom (Bool (Const false)), p -> p
       | p, q -> Or (p, q))
 

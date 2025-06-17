@@ -203,7 +203,7 @@ let to_prop { dummies; heap; path_cond } =
             | Path_cond.Const b -> Atom (Bool (Const b))
             | Cmp (op, a, b) -> Atom (Bool (Cmp (op, a, b))) ))
   in
-  And (dummies, And (heap, path_cond))
+  Prop.simpl (And (dummies, And (heap, path_cond)))
 
 (*
 let bound_to_string b =
@@ -431,31 +431,37 @@ let pretty { dummies; heap; path_cond } =
   (*               (fun x' -> utf8string (Dummy.to_string x')) *)
   (*               exvars) *)
   (*       ^^ !^"," ^^ hardline) *)
-  (if Map.is_empty heap then empty
-   else
-     group
-       (align
-          (separate_map
-             (space ^^ utf8string "∗" ^^ break 1)
-             (fun (x', hv) ->
-               utf8string (Dummy.to_string x')
-               ^^ space
-               ^^
-               match hv with
-               | Val e ->
-                   group (utf8string "↦" ^^ break 1 ^^ align (Aexp.pretty e))
-               | Undefined -> utf8string "↦ _"
-               | Dealloc -> utf8string "↦̸")
-             (Map.to_alist heap)))
-     ^^ hardline ^^ utf8string "∧ ")
-  ^^ (if Map.is_empty dummies then empty
-      else
-        hang 2
-          (separate_map
-             (break 1 ^^ utf8string "∧" ^^ space)
-             (fun (x, x') ->
-               utf8string (Ide.to_string x ^ " = " ^ Dummy.to_string x'))
-             (Map.to_alist dummies))
-        ^^ hardline ^^ utf8string "∧ ")
-  ^^ Path_cond.pretty path_cond ^^ hardline
+  let hd =
+    if Map.is_empty heap then empty
+    else
+      group
+        (align
+           (separate_map
+              (space ^^ utf8string "∗" ^^ break 1)
+              (fun (x', hv) ->
+                utf8string (Dummy.to_string x')
+                ^^ space
+                ^^
+                match hv with
+                | Val e ->
+                    group (utf8string "↦" ^^ break 1 ^^ align (Aexp.pretty e))
+                | Undefined -> utf8string "↦ _"
+                | Dealloc -> utf8string "↦̸")
+              (Map.to_alist heap)))
+  in
+  let dd =
+    if Map.is_empty dummies then empty
+    else
+      align
+        (separate_map
+           (break 1 ^^ utf8string "∧" ^^ space)
+           (fun (x, x') ->
+             utf8string (Ide.to_string x ^ " = " ^ Dummy.to_string x'))
+           (Map.to_alist dummies))
+  in
+  let pd = Path_cond.pretty path_cond in
+  separate
+    (hardline ^^ utf8string "∧ ")
+    (List.filter ~f:(fun d -> not (Poly.equal d empty)) [ hd; dd; pd ])
+  ^^ hardline
   ^^ !^"-------------------------"
