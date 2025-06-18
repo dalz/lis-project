@@ -249,8 +249,11 @@ let abstract_join_path_cond ~ensure_equal s t =
           match (op, eval bs a, eval bs b) with
           | Sum, `Eq n, `Eq m -> `Eq (n + m)
           | Sub, `Eq n, `Eq m -> `Eq (n - m)
-          | Sum, (`Ge n | `Eq n), (`Ge m | `Eq m) -> `Ge (Int.min n m)
-          | Sub, (`Le n | `Eq n), (`Le m | `Eq m) -> `Le (Int.max n (-m))
+          | Sum, (`Ge n | `Eq n), (`Ge m | `Eq m) ->
+              if n >= 0 || m >= 0 then `Ge (Int.min n m) else `Le (Int.max n m)
+          | Sub, (`Le n | `Eq n), (`Le m | `Eq m) ->
+              if n >= 0 || m <= 0 then `Le (Int.max n (-m))
+              else `Ge (Int.min n (-m))
           | Sum, (`Le n | `Eq n), `Le m when m <= 0 -> `Le n
           | Sub, (`Le n | `Eq n), `Ge m when m >= 0 -> `Le n
           | Sub, `Ge n, `Le m when m <= 0 -> `Ge n
