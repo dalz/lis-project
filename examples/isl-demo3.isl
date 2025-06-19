@@ -1,5 +1,5 @@
-{ ⊤ }
+{ y ↦ v }
 
 x ← alloc();
-free(x);
-y ← alloc();
+free(y);
+x ← [y];
