@@ -111,10 +111,10 @@ let choice_rule ~interactive (s : Executor_state.t) p1 p2 =
     PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Prog.pretty p2);
     Stdio.Out_channel.print_endline
       "\n\
-       1 - Input '1' for selecting the left path\n\
-       2 - Input '2' for the right path\n\
-       3 - Input '3'for both\n\
-       4 - Input '4' for choosing at random";
+       1 - Selects the left path\n\
+       2 - Selects the right path\n\
+       3 - Selects both\n\
+       4 - Let the program choose at random";
 
     (* Getting user's choice from stdin *)
     let user_choice =
@@ -153,7 +153,7 @@ let iter_rule ~interactive exec ( let* ) s p =
     PPrint.ToChannel.pretty 1. 60 Out_channel.stdout (Prog.pretty p);
     Stdio.Out_channel.print_endline
       "\n\
-       Choose how many iterations of `p` you want to unroll\n\
+       Choose how many steps of `p` you want to unroll\n\
        Input (default is '7'): ";
     let num_iter =
       In_channel.input_line In_channel.stdin
@@ -163,7 +163,8 @@ let iter_rule ~interactive exec ( let* ) s p =
 
     (* Getting the preference of unroll *)
     Stdio.Out_channel.print_endline
-      "1 - Return only the states after the `n` iterations have been executed\n\
+      "Choose which states you want to consider:\n\
+       1 - Return only the states after the `n` iterations have been executed\n\
        2 - Return all the states computed in-between\n\
        Input (default is '1'):";
     let user_choice =
