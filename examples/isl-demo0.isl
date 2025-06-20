@@ -1,5 +1,5 @@
-{ y ↦̸ }
+{ x ↦̸ }
 
-x := [y];
+free(x);
 
-# expected output: error
+# expected output: double free error
