@@ -1,5 +1,8 @@
-{ x ↦ _ }
+{ y ↦ v }
 
-a := 42;
-b := 0;
-([x] := a) + ([x] := b)
+x ← alloc();
+free(y);
+x ← [y];
+
+# expected output: 
+# [err: x ↦ _ ∗ y ↦̸]
